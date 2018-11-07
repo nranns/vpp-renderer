@@ -19,13 +19,13 @@ Summary: VPP renderer module for OpFlex Agent
 
 Group: System Environment/Daemons
 License: EPLv1.0
-URL: https://wiki.opendaylight.org/view/OpFlex:Main
+URL: https://github.com/opflex-vpp/vpp-renderer
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
 Source: %{name}-%{version}.tar.gz
 Requires: opflex-agent = %{epoch}:@libopflex_agent_VERSION@
-Requires: vpp-devel >= 18.04
-Requires: vpp-lib >= 18.04
+Requires: vpp-devel >= 19.01
+Requires: vpp-lib >= 19.01
 BuildRequires: opflex-agent-devel
 BuildRequires: vpp-devel
 BuildRequires: vpp-lib
@@ -70,5 +70,6 @@ make %{?_smp_mflags}
 %config(noreplace) %{_sysconfdir}/opflex-agent-ovs/plugins.conf.d/plugin-renderer-vpp.conf
 
 %changelog
-* Mon Apr 13 2018 Mohsin Kazmi <sykazmi@cisco.com> - 1:1.0.0
+* Fri Apr 13 2018 Mohsin Kazmi <sykazmi@cisco.com> - 1:1.0.0
+* Wed Nov 7  2018 Neale Ranns <nranns@cisco.com> - 1:1.1.0
 - New package file
