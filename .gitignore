@@ -30,3 +30,35 @@
 *.exe
 *.out
 *.app
+
+# autoconf detritus
+Makefile
+Makefile.in
+config.guess
+autom4te.cache
+aclocal.m4
+config.h
+config.h.in
+config.log
+config.status
+config.sub
+configure
+depcomp
+install-sh
+libtool
+ltmain.sh
+compile
+missing
+stamp-h1
+m4/*.m4
+.deps
+.dirstamp
+
+# Emacs temporaries
+*~
+
+# compiled products
+vpp_test
+test-driver
+plugin-renderer-vpp.conf
+rpm/opflex-agent-renderer-vpp.spec
