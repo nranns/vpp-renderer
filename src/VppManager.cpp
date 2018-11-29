@@ -469,7 +469,7 @@ static VOM::interface::type_t getIntfTypeFromName(string name) {
         (name.find("vhu") != string::npos))
         return VOM::interface::type_t::VHOST;
     else if (name.find("tap") != string::npos)
-        return VOM::interface::type_t::TAP;
+        return VOM::interface::type_t::TAPV2;
 
     return VOM::interface::type_t::AFPACKET;
 }

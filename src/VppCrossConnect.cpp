@@ -66,7 +66,7 @@ void CrossConnect::configure_xconnect()
         VOM::interface::type_t type = getIntfTypeFromName(it.first.name);
         if (type == VOM::interface::type_t::TAPV2) {
             VOM::route::prefix_t pfx(it.first.ip, 24);
-            tap_interface itf(it.first.name, type, interface::admin_state_t::UP, pfx);
+            tap_interface itf(it.first.name, interface::admin_state_t::UP, pfx);
             OM::write(XCONNECT_KEY, itf);
             itf_ptr = itf.singular();
         } else {
@@ -86,7 +86,7 @@ void CrossConnect::configure_xconnect()
         VOM::interface::type_t type2 = getIntfTypeFromName(it.second.name);
         if (type2 == VOM::interface::type_t::TAPV2) {
             VOM::route::prefix_t pfx(it.second.ip, 24);
-            tap_interface xitf(it.second.name, type2, interface::admin_state_t::UP, pfx);
+            tap_interface xitf(it.second.name, interface::admin_state_t::UP, pfx);
             OM::write(XCONNECT_KEY, xitf);
             xitf_ptr = xitf.singular();
         } else {

@@ -21,6 +21,8 @@
 #include "vom/sub_interface.hpp"
 #include "vom/bond_interface.hpp"
 #include "vom/bond_member.hpp"
+#include "vom/ip_punt_redirect.hpp"
+#include "vom/neighbour.hpp"
 
 using namespace VOM;
 
@@ -55,9 +57,19 @@ std::shared_ptr<VOM::interface> Uplink::mk_interface(const std::string& uuid,
 }
 
 void Uplink::configure_tap(const route::prefix_t& pfx) {
-    tap_interface itf("tuntap-0", interface::type_t::TAP,
-                      interface::admin_state_t::UP, pfx);
+
+    /**
+     * Create a tap interface with a fixed mac so we can add a
+     * ARP entry for it
+     */
+    mac_address_t tap_mac("00:00:de:ad:be:ef");
+
+    tap_interface itf("tap0",  interface::admin_state_t::UP,
+                      pfx, tap_mac);
     VOM::OM::write(UPLINK_KEY, itf);
+
+    neighbour tap_nbr(itf, pfx.address(), tap_mac);
+    VOM::OM::write(UPLINK_KEY, tap_nbr);
 
     /*
      * commit and L3 Config to the OM so this uplink owns the
@@ -78,6 +90,9 @@ void Uplink::configure_tap(const route::prefix_t& pfx) {
 
     arp_proxy_binding arpProxyBinding(itf);
     VOM::OM::write(UPLINK_KEY, arpProxyBinding);
+
+    ip_punt_redirect ipPunt(itf, pfx.address());
+    VOM::OM::write(UPLINK_KEY, ipPunt);
 }
 
 void Uplink::handle_dhcp_event(std::shared_ptr<VOM::dhcp_client::lease_t> lease) {
@@ -105,7 +120,7 @@ static VOM::interface::type_t getIntfTypeFromName(std::string& name) {
     else if (name.find("Ethernet") != std::string::npos)
         return VOM::interface::type_t::ETHERNET;
     else if (name.find("tap") != std::string::npos)
-        return VOM::interface::type_t::TAP;
+        return VOM::interface::type_t::TAPV2;
 
     return VOM::interface::type_t::AFPACKET;
 }

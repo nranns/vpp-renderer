@@ -54,6 +54,10 @@ m4/*.m4
 .deps
 .dirstamp
 
+# tags
+TAGS
+ID
+
 # Emacs temporaries
 *~
 
@@ -62,3 +66,5 @@ vpp_test
 test-driver
 plugin-renderer-vpp.conf
 rpm/opflex-agent-renderer-vpp.spec
+renderer-vpp-1.0.0.tar.gz
+rpm/SOURCES
