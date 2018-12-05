@@ -55,7 +55,8 @@ VppManager::VppManager(opflexagent::Agent &agent_,
 void
 VppManager::start()
 {
-    VLOGI << "start vpp manager: mode: " << agent.getRendererForwardingMode();
+    VLOGI << "start vpp manager: mode: "
+          << (int)agent.getRendererForwardingMode();
 
     /*
      * create the update delegators

@@ -58,8 +58,6 @@ EndPointManager::EndPointManager(opflexagent::Agent &agent,
 
 EndPointManager::~EndPointManager()
 {
-    // REMOVE ME
-    std::abort();
 }
 
 std::string

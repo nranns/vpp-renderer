@@ -227,9 +227,9 @@ class VppManagerFixture : public ModbFixture
         WAIT_FOR(policyMgr.groupExists(epg1->getURI()), 500);
         WAIT_FOR(policyMgr.getRDForGroup(epg1->getURI()) != boost::none, 500);
 
-        vppManager.start();
         vppManager.uplink().set("opflex-itf", 4093, "opflex-host");
         vppManager.setVirtualRouter(true, true, vMac.to_string());
+        vppManager.start();
     }
 
     virtual ~VppManagerFixture()
@@ -534,6 +534,8 @@ BOOST_FIXTURE_TEST_CASE(endpoint_group_add_del, VppManagerFixture)
     interface *v_bvi_epg0 = new interface(
         "bvi-100", interface::type_t::BVI, interface::admin_state_t::UP, v_rd);
     v_bvi_epg0->set(vMac);
+
+    inspector.handle_input("intf", std::cout);
     WAIT_FOR_MATCH(*v_bvi_epg0);
 
     /*
@@ -758,16 +760,6 @@ BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppManagerFixture)
     WAIT_FOR_MATCH(*v_itf_ep0);
 
     /*
-     * the host interface is put in the bridge-domain
-     */
-    WAIT_FOR_MATCH(l2_binding(*v_itf_ep0, v_bd_epg0));
-
-    /*
-     * A bridge-domain entry for the VM's MAC
-     */
-    WAIT_FOR_MATCH(bridge_domain_entry(v_bd_epg0, v_mac_ep0, *v_itf_ep0));
-
-    /*
      * the Endpoint
      */
     WAIT_FOR_MATCH(gbp_endpoint(*v_itf_ep0, getEPIps(ep0), v_mac_ep0, *v_epg0));
@@ -786,8 +778,6 @@ BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppManagerFixture)
                                          interface::admin_state_t::UP,
                                          v_rd);
     WAIT_FOR_MATCH(*v_itf_ep2);
-    WAIT_FOR_MATCH(l2_binding(*v_itf_ep2, v_bd_epg1));
-    WAIT_FOR_MATCH(bridge_domain_entry(v_bd_epg1, v_mac_ep2, *v_itf_ep2));
     interface *v_bvi_epg1 = new interface(
         "bvi-101", interface::type_t::BVI, interface::admin_state_t::UP, v_rd);
     v_bvi_epg1->set(vMac);
@@ -847,10 +837,6 @@ BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppManagerFixture)
     interface *v_trunk_itf_ep4 =
         new sub_interface(*v_itf_ep4, interface::admin_state_t::UP, v_rd, 1000);
     WAIT_FOR_MATCH(*v_trunk_itf_ep4);
-    l2_binding *l2 = new l2_binding(*v_trunk_itf_ep4, v_bd_epg1);
-    l2->set(l2_binding::l2_vtr_op_t::L2_VTR_POP_1, 1000);
-    WAIT_FOR_MATCH(*l2);
-    WAIT_FOR_MATCH(bridge_domain_entry(v_bd_epg1, v_mac_ep4, *v_trunk_itf_ep4));
     WAIT_FOR_MATCH(*v_bvi_epg1);
     WAIT_FOR_MATCH(v_upl_epg1);
     WAIT_FOR_MATCH(*v_epg1);
@@ -861,7 +847,6 @@ BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppManagerFixture)
     epSrc.removeEndpoint(ep4->getUUID());
     vppManager.endpointUpdated(ep4->getUUID());
 
-    delete l2;
     delete v_itf_ep2;
     delete v_trunk_itf_ep4;
     delete v_itf_ep4;
