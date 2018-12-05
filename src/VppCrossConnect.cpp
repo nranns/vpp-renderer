@@ -7,7 +7,7 @@
  * and is available at http://www.eclipse.org/legal/epl-v10.html
  */
 
-#include "VppCrossConnect.h"
+#include "VppCrossConnect.hpp"
 
 #include <opflexagent/logging.h>
 
@@ -23,7 +23,8 @@ namespace VPP
 
 static const std::string XCONNECT_KEY = "__xconnect__";
 
-CrossConnect::xconnect_t::xconnect_t(const std::string &name, uint16_t vlan,
+CrossConnect::xconnect_t::xconnect_t(const std::string &name,
+                                     uint16_t vlan,
                                      std::string ip_address)
     : name(name)
     , vlan(vlan)
@@ -31,7 +32,8 @@ CrossConnect::xconnect_t::xconnect_t(const std::string &name, uint16_t vlan,
 {
 }
 
-std::string CrossConnect::xconnect_t::to_string() const
+std::string
+CrossConnect::xconnect_t::to_string() const
 {
     std::ostringstream s;
     s << "[itf:" << name << " vlan:" << vlan << " ip:" << ip.to_string() << "]";
@@ -43,12 +45,14 @@ CrossConnect::CrossConnect()
 {
 }
 
-void CrossConnect::insert_xconnect(CrossConnect::xconnect xconn)
+void
+CrossConnect::insert_xconnect(CrossConnect::xconnect xconn)
 {
     this->xconnects.push_back(xconn);
 }
 
-static VOM::interface::type_t getIntfTypeFromName(std::string &name)
+static VOM::interface::type_t
+getIntfTypeFromName(std::string &name)
 {
     if (name.find("Bond") != std::string::npos)
         return VOM::interface::type_t::BOND;
@@ -60,7 +64,8 @@ static VOM::interface::type_t getIntfTypeFromName(std::string &name)
     return VOM::interface::type_t::AFPACKET;
 }
 
-void CrossConnect::configure_xconnect()
+void
+CrossConnect::configure_xconnect()
 {
 
     LOG(opflexagent::INFO) << "configure";
@@ -89,8 +94,8 @@ void CrossConnect::configure_xconnect()
              * from
              * the upstream will arrive
              */
-            sub_interface subitf(*itf_ptr, interface::admin_state_t::UP,
-                                 it.first.vlan);
+            sub_interface subitf(
+                *itf_ptr, interface::admin_state_t::UP, it.first.vlan);
             OM::write(XCONNECT_KEY, subitf);
             itf_ptr = subitf.singular();
         }
@@ -98,8 +103,8 @@ void CrossConnect::configure_xconnect()
         if (type2 == VOM::interface::type_t::TAPV2)
         {
             VOM::route::prefix_t pfx(it.second.ip, 24);
-            tap_interface xitf(it.second.name, interface::admin_state_t::UP,
-                               pfx);
+            tap_interface xitf(
+                it.second.name, interface::admin_state_t::UP, pfx);
             OM::write(XCONNECT_KEY, xitf);
             xitf_ptr = xitf.singular();
         }
@@ -116,8 +121,8 @@ void CrossConnect::configure_xconnect()
              * from
              * the upstream will arrive
              */
-            sub_interface xsubitf(*xitf_ptr, interface::admin_state_t::UP,
-                                  it.second.vlan);
+            sub_interface xsubitf(
+                *xitf_ptr, interface::admin_state_t::UP, it.second.vlan);
             OM::write(XCONNECT_KEY, xsubitf);
             xitf_ptr = xsubitf.singular();
         }

@@ -11,16 +11,19 @@
 
 #include <iostream>
 
-#include "VppLogHandler.h"
 #include <opflexagent/logging.h>
+
+#include "VppLogHandler.hpp"
 
 namespace VPP
 {
 
-void LogHandler::handle_message(const std::string &file, const int line,
-                                const std::string &function,
-                                const VOM::log_level_t &level,
-                                const std::string &message)
+void
+LogHandler::handle_message(const std::string &file,
+                           const int line,
+                           const std::string &function,
+                           const VOM::log_level_t &level,
+                           const std::string &message)
 {
     opflexagent::LogLevel agentLevel = opflexagent::INFO;
 

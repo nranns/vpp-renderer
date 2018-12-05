@@ -13,7 +13,8 @@
 
 namespace VPP
 {
-const interface::type_t &getIntfTypeFromName(const std::string &name)
+const interface::type_t &
+getIntfTypeFromName(const std::string &name)
 {
     if (name.find("Bond") != std::string::npos)
         return interface::type_t::BOND;

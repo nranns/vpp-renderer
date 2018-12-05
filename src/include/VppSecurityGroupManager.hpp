@@ -23,15 +23,28 @@ namespace VPP
 class SecurityGroupManager
 {
   public:
+    SecurityGroupManager(opflexagent::Agent &agent);
+
     static void
     build_update(opflexagent::Agent &agent,
                  const opflexagent::EndpointListener::uri_set_t &secGrps,
-                 const std::string &secGrpId, ACL::l3_list::rules_t &in_rules,
+                 const std::string &secGrpId,
+                 ACL::l3_list::rules_t &in_rules,
                  ACL::l3_list::rules_t &out_rules,
                  ACL::acl_ethertype::ethertype_rules_t &ethertype_rules);
 
     static std::string
     get_id(const opflexagent::EndpointListener::uri_set_t &secGrps);
+
+    void
+    handle_set_update(const opflexagent::EndpointListener::uri_set_t &secGrps);
+    void handle_update(const opflex::modb::URI &uri);
+
+  private:
+    /**
+     * Referene to the uber-agent
+     */
+    opflexagent::Agent &m_agent;
 };
 }; // namespace VPP
 

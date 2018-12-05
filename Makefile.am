@@ -28,15 +28,16 @@ librenderer_vpp_la_LIBADD = \
 	$(libopflex_agent_LIBS)
 
 noinst_HEADERS = \
-	src/include/VppInspect.h \
-	src/include/VppLogHandler.h \
-	src/include/VPPRenderer.h \
-	src/include/VppUplink.h \
-	src/include/VppVirtualRouter.h \
-	src/include/VppCrossConnect.h \
-	src/include/VppManager.h
+	src/include/VppInspect.hpp \
+	src/include/VppLogHandler.hpp \
+	src/include/VppRenderer.hpp \
+	src/include/VppUplink.hpp \
+	src/include/VppVirtualRouter.hpp \
+	src/include/VppCrossConnect.hpp \
+	src/include/VppManager.hpp
 
 librenderer_vpp_la_SOURCES = \
+	src/VppContractManager.cpp \
 	src/VppCrossConnect.cpp \
 	src/VppEndPointGroupManager.cpp \
 	src/VppEndPointManager.cpp \
@@ -44,7 +45,8 @@ librenderer_vpp_la_SOURCES = \
         src/VppInspect.cpp \
         src/VppLogHandler.cpp \
         src/VppManager.cpp \
-	src/VPPRenderer.cpp \
+	src/VppRenderer.cpp \
+        src/VppRouteDomainManager.cpp \
         src/VppSecurityGroupManager.cpp \
         src/VppSpineProxy.cpp \
         src/VppUplink.cpp \
@@ -67,7 +69,7 @@ plugin-renderer-vpp.conf: $(top_srcdir)/plugin-renderer-vpp.conf.in
 
 fixstyle:
 	clang-format -i src/*.cpp
-	clang-format -i src/include/*.h
+	clang-format -i src/test/*.cpp
 	clang-format -i src/include/*.hpp
 
 # Create a unit test driver that links to the plugin convenience
@@ -89,7 +91,7 @@ vpp_test_LDADD = \
         librenderer_vpp.la
 vpp_test_SOURCES = \
 	src/test/vpp_test.cpp \
-	src/test/VPPRenderer_test.cpp \
+	src/test/VppRenderer_test.cpp \
         src/test/VppManager_test.cpp
 
 clean-local:

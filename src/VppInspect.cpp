@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-#include "VppInspect.h"
+#include "VppInspect.hpp"
 #include "vom/inspect.hpp"
 #include <opflexagent/logging.h>
 
@@ -44,14 +44,16 @@ VppInspect::~VppInspect()
     LOG(INFO) << "inspect - close";
 }
 
-void VppInspect::on_cleanup(uv_async_t *handle)
+void
+VppInspect::on_cleanup(uv_async_t *handle)
 {
     VppInspect *ins = static_cast<VppInspect *>(handle->loop->data);
 
     uv_stop(&ins->mServerLoop);
 }
 
-void VppInspect::run(void *ctx)
+void
+VppInspect::run(void *ctx)
 {
     VppInspect *ins = static_cast<VppInspect *>(ctx);
     uv_pipe_t server;
@@ -91,14 +93,15 @@ VppInspect::write_req_t::write_req_t(std::ostringstream &output)
     memcpy(buf.base, output.str().c_str(), buf.len);
 }
 
-void VppInspect::on_alloc_buffer(uv_handle_t *handle, size_t size,
-                                 uv_buf_t *buf)
+void
+VppInspect::on_alloc_buffer(uv_handle_t *handle, size_t size, uv_buf_t *buf)
 {
     buf->base = (char *)malloc(size);
     buf->len = size;
 }
 
-void VppInspect::on_write(uv_write_t *req, int status)
+void
+VppInspect::on_write(uv_write_t *req, int status)
 {
     write_req_t *wr = (write_req_t *)req;
 
@@ -110,15 +113,16 @@ void VppInspect::on_write(uv_write_t *req, int status)
     delete wr;
 }
 
-void VppInspect::do_write(uv_stream_t *client, std::ostringstream &output)
+void
+VppInspect::do_write(uv_stream_t *client, std::ostringstream &output)
 {
     write_req_t *req = new write_req_t(output);
 
     uv_write((uv_write_t *)req, client, &req->buf, 1, on_write);
 }
 
-void VppInspect::on_read(uv_stream_t *client, ssize_t nread,
-                         const uv_buf_t *buf)
+void
+VppInspect::on_read(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf)
 {
     VppInspect *ins = static_cast<VppInspect *>(client->loop->data);
 
@@ -149,7 +153,8 @@ void VppInspect::on_read(uv_stream_t *client, ssize_t nread,
     free(buf->base);
 }
 
-void VppInspect::on_connection(uv_stream_t *server, int status)
+void
+VppInspect::on_connection(uv_stream_t *server, int status)
 {
     VppInspect *ins = static_cast<VppInspect *>(server->loop->data);
 
@@ -171,7 +176,8 @@ void VppInspect::on_connection(uv_stream_t *server, int status)
 
         do_write((uv_stream_t *)client, output);
 
-        uv_read_start((uv_stream_t *)client, VppInspect::on_alloc_buffer,
+        uv_read_start((uv_stream_t *)client,
+                      VppInspect::on_alloc_buffer,
                       VppInspect::on_read);
     }
     else

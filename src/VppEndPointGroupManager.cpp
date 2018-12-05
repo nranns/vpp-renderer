@@ -34,7 +34,8 @@
 namespace VPP
 {
 EndPointGroupManager::EndPointGroupManager(opflexagent::Agent &agent,
-                                           IdGen &id_gen, Uplink &uplink,
+                                           IdGen &id_gen,
+                                           Uplink &uplink,
                                            std::shared_ptr<VirtualRouter> vr)
     : m_agent(agent)
     , m_id_gen(id_gen)
@@ -43,9 +44,11 @@ EndPointGroupManager::EndPointGroupManager(opflexagent::Agent &agent,
 {
 }
 
-EndPointGroupManager::ForwardInfo EndPointGroupManager::get_fwd_info(
-    opflexagent::Agent &agent, IdGen &id_gen,
-    const opflex::modb::URI &uri) throw(NoFowardInfo)
+EndPointGroupManager::ForwardInfo
+EndPointGroupManager::get_fwd_info(
+    opflexagent::Agent &agent,
+    IdGen &id_gen,
+    const opflex::modb::URI &uri) throw(NoFowardInfoException)
 {
     EndPointGroupManager::ForwardInfo fwd;
     opflexagent::PolicyManager &polMgr = agent.getPolicyManager();
@@ -53,7 +56,7 @@ EndPointGroupManager::ForwardInfo EndPointGroupManager::get_fwd_info(
 
     if (!epgVnid)
     {
-        throw NoFowardInfo();
+        throw NoFowardInfoException();
     }
     fwd.vnid = epgVnid.get();
 
@@ -63,7 +66,7 @@ EndPointGroupManager::ForwardInfo EndPointGroupManager::get_fwd_info(
         polMgr.getBDForGroup(uri);
     if (!epgBd)
     {
-        throw NoFowardInfo();
+        throw NoFowardInfoException();
     }
 
     if (epgRd)
@@ -82,7 +85,8 @@ EndPointGroupManager::ForwardInfo EndPointGroupManager::get_fwd_info(
     return fwd;
 }
 
-void EndPointGroupManager::handle_update(const opflex::modb::URI &epgURI)
+void
+EndPointGroupManager::handle_update(const opflex::modb::URI &epgURI)
 {
     const std::string &epg_uuid = epgURI.toString();
 
@@ -92,13 +96,13 @@ void EndPointGroupManager::handle_update(const opflex::modb::URI &epgURI)
      */
     OM::mark_n_sweep ms(epg_uuid);
 
-    OLOGD << "Updating endpoint-group:" << epgURI;
+    VLOGD << "Updating endpoint-group:" << epgURI;
 
     opflexagent::PolicyManager &pm = m_agent.getPolicyManager();
 
     if (!m_agent.getPolicyManager().groupExists(epgURI))
     {
-        OLOGD << "Deleting endpoint-group:" << epgURI;
+        VLOGD << "Deleting endpoint-group:" << epgURI;
         return;
     }
 
@@ -144,8 +148,10 @@ void EndPointGroupManager::handle_update(const opflex::modb::URI &epgURI)
         /*
          * Create a BVI interface for the EPG and add it to the bridge-domain
          */
-        interface bvi("bvi-" + std::to_string(bd.id()), interface::type_t::BVI,
-                      interface::admin_state_t::UP, rd);
+        interface bvi("bvi-" + std::to_string(bd.id()),
+                      interface::type_t::BVI,
+                      interface::admin_state_t::UP,
+                      rd);
         if (m_vr)
         {
             /*
@@ -160,9 +166,13 @@ void EndPointGroupManager::handle_update(const opflex::modb::URI &epgURI)
         /*
          * The BVI is the NAT inside interface for the VMs
          */
-        nat_binding nb6(bvi, direction_t::INPUT, l3_proto_t::IPV6,
+        nat_binding nb6(bvi,
+                        direction_t::INPUT,
+                        l3_proto_t::IPV6,
                         nat_binding::zone_t::INSIDE);
-        nat_binding nb4(bvi, direction_t::INPUT, l3_proto_t::IPV4,
+        nat_binding nb4(bvi,
+                        direction_t::INPUT,
+                        l3_proto_t::IPV4,
                         nat_binding::zone_t::INSIDE);
         OM::write(epg_uuid, nb4);
         OM::write(epg_uuid, nb6);
@@ -202,8 +212,8 @@ void EndPointGroupManager::handle_update(const opflex::modb::URI &epgURI)
                 l3_binding l3(bvi, {raddr});
                 OM::write(epg_uuid, l3);
 
-                bridge_domain_arp_entry bae(bd, raddr,
-                                            bvi.l2_address().to_mac());
+                bridge_domain_arp_entry bae(
+                    bd, raddr, bvi.l2_address().to_mac());
                 OM::write(epg_uuid, bae);
             }
             /*
@@ -217,9 +227,9 @@ void EndPointGroupManager::handle_update(const opflex::modb::URI &epgURI)
             OM::write(epg_uuid, gs);
         }
     }
-    catch (EndPointGroupManager::NoFowardInfo &nofwd)
+    catch (EndPointGroupManager::NoFowardInfoException &nofwd)
     {
-        OLOGD << "NOT Updating endpoint-group:" << epgURI;
+        VLOGD << "NOT Updating endpoint-group:" << epgURI;
     }
 }
 

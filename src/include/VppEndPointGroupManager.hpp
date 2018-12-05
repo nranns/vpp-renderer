@@ -12,8 +12,8 @@
 #include <opflexagent/Agent.h>
 
 #include "VppIdGen.hpp"
-#include "VppUplink.h"
-#include "VppVirtualRouter.h"
+#include "VppUplink.hpp"
+#include "VppVirtualRouter.hpp"
 
 namespace VPP
 {
@@ -28,16 +28,19 @@ class EndPointGroupManager
         boost::optional<opflex::modb::URI> rdURI;
         boost::optional<opflex::modb::URI> bdURI;
     };
-    struct NoFowardInfo
+    struct NoFowardInfoException
     {
     };
 
-    EndPointGroupManager(opflexagent::Agent &agent, IdGen &id_gen,
-                         Uplink &uplink, std::shared_ptr<VirtualRouter> vr);
+    EndPointGroupManager(opflexagent::Agent &agent,
+                         IdGen &id_gen,
+                         Uplink &uplink,
+                         std::shared_ptr<VirtualRouter> vr);
 
     static ForwardInfo
-    get_fwd_info(opflexagent::Agent &agent, IdGen &id_gen,
-                 const opflex::modb::URI &uri) throw(NoFowardInfo);
+    get_fwd_info(opflexagent::Agent &agent,
+                 IdGen &id_gen,
+                 const opflex::modb::URI &uri) throw(NoFowardInfoException);
 
     void handle_update(const opflex::modb::URI &epgURI);
 

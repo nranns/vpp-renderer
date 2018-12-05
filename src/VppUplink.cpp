@@ -7,9 +7,6 @@
  * and is available at http://www.eclipse.org/legal/epl-v10.html
  */
 
-#include "VppUplink.h"
-#include "VppUtil.hpp"
-
 #include <opflexagent/logging.h>
 
 #include "vom/arp_proxy_binding.hpp"
@@ -24,6 +21,9 @@
 #include "vom/lldp_global.hpp"
 #include "vom/neighbour.hpp"
 #include "vom/sub_interface.hpp"
+
+#include "VppUplink.hpp"
+#include "VppUtil.hpp"
 
 using namespace VOM;
 
@@ -40,8 +40,8 @@ Uplink::Uplink(opflexagent::TaskQueue &taskQueue, Listener *listener)
     if (listener) m_listeners.push_back(listener);
 }
 
-std::shared_ptr<VOM::interface> Uplink::mk_interface(const std::string &uuid,
-                                                     uint32_t vnid)
+std::shared_ptr<VOM::interface>
+Uplink::mk_interface(const std::string &uuid, uint32_t vnid)
 {
     std::shared_ptr<VOM::interface> sp;
     switch (m_type)
@@ -65,7 +65,8 @@ std::shared_ptr<VOM::interface> Uplink::mk_interface(const std::string &uuid,
     return sp;
 }
 
-void Uplink::configure_tap(const route::prefix_t &pfx)
+void
+Uplink::configure_tap(const route::prefix_t &pfx)
 {
 
     /**
@@ -104,13 +105,15 @@ void Uplink::configure_tap(const route::prefix_t &pfx)
     VOM::OM::write(UPLINK_KEY, ipPunt);
 }
 
-void Uplink::handle_dhcp_event(std::shared_ptr<VOM::dhcp_client::lease_t> lease)
+void
+Uplink::handle_dhcp_event(std::shared_ptr<VOM::dhcp_client::lease_t> lease)
 {
     m_task_queue.dispatch("dhcp-config-event",
                           bind(&Uplink::handle_dhcp_event_i, this, lease));
 }
 
-void Uplink::handle_dhcp_event_i(std::shared_ptr<dhcp_client::lease_t> lease)
+void
+Uplink::handle_dhcp_event_i(std::shared_ptr<dhcp_client::lease_t> lease)
 {
     LOG(opflexagent::INFO) << "DHCP Event: " << lease->to_string();
 
@@ -133,12 +136,14 @@ void Uplink::handle_dhcp_event_i(std::shared_ptr<dhcp_client::lease_t> lease)
     }
 }
 
-const boost::asio::ip::address &Uplink::local_address() const
+const boost::asio::ip::address &
+Uplink::local_address() const
 {
     return m_pfx.address();
 }
 
-void Uplink::configure(const std::string &fqdn)
+void
+Uplink::configure(const std::string &fqdn)
 {
 
     LOG(opflexagent::INFO) << "configure";
@@ -148,18 +153,19 @@ void Uplink::configure(const std::string &fqdn)
     VOM::interface::type_t type = getIntfTypeFromName(m_iface);
     if (VOM::interface::type_t::BOND == type)
     {
-        bond_interface bitf(m_iface, interface::admin_state_t::UP,
+        bond_interface bitf(m_iface,
+                            interface::admin_state_t::UP,
                             bond_interface::mode_t::LACP,
                             bond_interface::lb_t::L2);
         OM::write(UPLINK_KEY, bitf);
         bond_group_binding::enslaved_itf_t slave_itfs;
         for (auto sif : slave_ifaces)
         {
-            interface sitf(sif, getIntfTypeFromName(sif),
-                           interface::admin_state_t::UP);
+            interface sitf(
+                sif, getIntfTypeFromName(sif), interface::admin_state_t::UP);
             OM::write(UPLINK_KEY, sitf);
-            bond_member bm(sitf, bond_member::mode_t::ACTIVE,
-                           bond_member::rate_t::SLOW);
+            bond_member bm(
+                sitf, bond_member::mode_t::ACTIVE, bond_member::rate_t::SLOW);
             slave_itfs.insert(bm);
         }
         if (!slave_itfs.empty())
@@ -236,9 +242,12 @@ void Uplink::configure(const std::string &fqdn)
     }
 }
 
-void Uplink::set(const std::string &uplink, uint16_t uplink_vlan,
-                 const std::string &encap_name,
-                 const boost::asio::ip::address &remote_ip, uint16_t port)
+void
+Uplink::set(const std::string &uplink,
+            uint16_t uplink_vlan,
+            const std::string &encap_name,
+            const boost::asio::ip::address &remote_ip,
+            uint16_t port)
 {
     m_type = VXLAN;
     m_vxlan.dst = remote_ip;
@@ -246,20 +255,24 @@ void Uplink::set(const std::string &uplink, uint16_t uplink_vlan,
     m_vlan = uplink_vlan;
 }
 
-void Uplink::set(const std::string &uplink, uint16_t uplink_vlan,
-                 const std::string &encap_name)
+void
+Uplink::set(const std::string &uplink,
+            uint16_t uplink_vlan,
+            const std::string &encap_name)
 {
     m_type = VLAN;
     m_iface = uplink;
     m_vlan = uplink_vlan;
 }
 
-void Uplink::insert_slave_ifaces(std::string name)
+void
+Uplink::insert_slave_ifaces(std::string name)
 {
     this->slave_ifaces.insert(name);
 }
 
-void Uplink::insert_dhcp_options(std::string name)
+void
+Uplink::insert_dhcp_options(std::string name)
 {
     this->dhcp_options.insert(name);
 }

@@ -7,7 +7,7 @@
  * and is available at http://www.eclipse.org/legal/epl-v10.html
  */
 
-#include "VppVirtualRouter.h"
+#include "VppVirtualRouter.hpp"
 
 namespace VPP
 {
@@ -17,7 +17,8 @@ VirtualRouter::VirtualRouter(const VOM::mac_address_t &mac)
 {
 }
 
-const VOM::mac_address_t &VirtualRouter::mac() const
+const VOM::mac_address_t &
+VirtualRouter::mac() const
 {
     return (m_mac);
 }

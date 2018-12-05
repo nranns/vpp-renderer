@@ -17,9 +17,13 @@
 
 namespace VPP
 {
-static const char *ID_NAMESPACES[] = {
-    "floodDomain",     "bridgeDomain", "routingDomain", "contract",
-    "externalNetwork", "secGroup",     "secGroupSet"};
+static const char *ID_NAMESPACES[] = {"floodDomain",
+                                      "bridgeDomain",
+                                      "routingDomain",
+                                      "contract",
+                                      "externalNetwork",
+                                      "secGroup",
+                                      "secGroupSet"};
 
 static const char *ID_NMSPC_FD = ID_NAMESPACES[0];
 static const char *ID_NMSPC_BD = ID_NAMESPACES[1];
@@ -42,17 +46,20 @@ IdGen::IdGen(opflexagent::IdGenerator &id_gen)
     }
 }
 
-uint32_t IdGen::get(opflex::modb::class_id_t cid, const opflex::modb::URI &uri)
+uint32_t
+IdGen::get(opflex::modb::class_id_t cid, const opflex::modb::URI &uri)
 {
     return m_id_gen.getId(get_namespace(cid), uri.toString());
 }
 
-void IdGen::erase(opflex::modb::class_id_t cid, const opflex::modb::URI &uri)
+void
+IdGen::erase(opflex::modb::class_id_t cid, const opflex::modb::URI &uri)
 {
     m_id_gen.erase(get_namespace(cid), uri.toString());
 }
 
-const char *IdGen::get_namespace(opflex::modb::class_id_t cid)
+const char *
+IdGen::get_namespace(opflex::modb::class_id_t cid)
 {
     const char *nmspc = NULL;
     switch (cid)

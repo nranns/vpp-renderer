@@ -1,6 +1,6 @@
 /* -*- C++ -*-; c-basic-offset: 4; indent-tabs-mode: nil */
 /*
- * Include file for VPPRenderer
+ * Include file for VppRenderer
  *
  * Copyright (c) 2018 Cisco Systems, Inc. and others.  All rights reserved.
  *
@@ -10,16 +10,19 @@
  */
 
 #pragma once
-#ifndef VPPRENDERER_H
-#define VPPRENDERER_H
+#ifndef __VPP_RENDERER_H__
+#define __VPP_RENDERER_H__
 
-#include "VppInspect.h"
-#include "VppManager.h"
 #include <boost/property_tree/ptree.hpp>
+
 #include <opflex/ofcore/OFFramework.h>
 #include <opflexagent/IdGenerator.h>
 #include <opflexagent/Renderer.h>
+
 #include <vom/hw.hpp>
+
+#include "VppInspect.hpp"
+#include "VppManager.hpp"
 
 using namespace opflexagent;
 
@@ -29,7 +32,7 @@ namespace VPP
  * The vpp renderer demonstrates how to create a renderer plugin
  * for OpFlex agent.
  */
-class VPPRenderer : public opflexagent::Renderer
+class VppRenderer : public opflexagent::Renderer
 {
   public:
     /**
@@ -37,13 +40,15 @@ class VPPRenderer : public opflexagent::Renderer
      *
      * @param agent the agent object
      */
-    VPPRenderer(opflexagent::Agent &agent, IdGenerator &idGen,
-                VOM::HW::cmd_q *vppQ, VppManager *vppManager);
+    VppRenderer(opflexagent::Agent &agent,
+                IdGenerator &idGen,
+                VOM::HW::cmd_q *vppQ,
+                VppManager *vppManager);
 
     /**
      * Destroy the renderer and clean up all state
      */
-    virtual ~VPPRenderer();
+    virtual ~VppRenderer();
 
     // ********
     // Renderer
@@ -84,10 +89,10 @@ class VPPRenderer : public opflexagent::Renderer
  * Plugin implementation for dynamically loading vpp
  * renderer.
  */
-class VPPRendererPlugin : public opflexagent::RendererPlugin
+class VppRendererPlugin : public opflexagent::RendererPlugin
 {
   public:
-    VPPRendererPlugin();
+    VppRendererPlugin();
 
     // **************
     // RendererPlugin
@@ -103,4 +108,4 @@ class VPPRendererPlugin : public opflexagent::RendererPlugin
  */
 extern "C" const opflexagent::RendererPlugin *init_renderer_plugin();
 
-#endif /* VPPRENDERER_H */
+#endif /* __VPP__RENDERER_H__ */

@@ -12,8 +12,8 @@
 
 #include <opflexagent/logging.h>
 
-#define OLOGD LOG(opflexagent::DEBUG)
-#define OLOGW LOG(opflexagent::WARNING)
+#define VLOGD LOG(opflexagent::DEBUG)
+#define VLOGW LOG(opflexagent::WARNING)
 #define VLOGI LOG(opflexagent::INFO)
 #define VLOGE LOG(opflexagent::ERROR)
 

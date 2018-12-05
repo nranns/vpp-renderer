@@ -12,8 +12,8 @@
 
 #include <opflexagent/logging.h>
 
-#include "VPPRenderer.h"
-#include "VppLogHandler.h"
+#include "VppLogHandler.hpp"
+#include "VppRenderer.hpp"
 
 namespace VPP
 {
@@ -23,28 +23,30 @@ using opflex::ofcore::OFFramework;
 using boost::property_tree::ptree;
 using boost::asio::placeholders::error;
 
-VPPRendererPlugin::VPPRendererPlugin()
+VppRendererPlugin::VppRendererPlugin()
 {
 }
 
-std::unordered_set<std::string> VPPRendererPlugin::getNames() const
+std::unordered_set<std::string>
+VppRendererPlugin::getNames() const
 {
     return {"vpp"};
 }
 
 opflexagent::Renderer *
-VPPRendererPlugin::create(opflexagent::Agent &agent) const
+VppRendererPlugin::create(opflexagent::Agent &agent) const
 {
 
     IdGenerator *idGen = new IdGenerator();
     VOM::HW::cmd_q *vppQ = new VOM::HW::cmd_q();
     VppManager *vppManager = new VppManager(agent, *idGen, vppQ);
-    return new VPPRenderer(agent, *idGen, vppQ, vppManager);
+    return new VppRenderer(agent, *idGen, vppQ, vppManager);
 }
 
 VPP::LogHandler vppLogHandler;
 
-static VOM::log_level_t agentLevelToVom(opflexagent::LogLevel level)
+static VOM::log_level_t
+agentLevelToVom(opflexagent::LogLevel level)
 {
     switch (level)
     {
@@ -62,8 +64,10 @@ static VOM::log_level_t agentLevelToVom(opflexagent::LogLevel level)
     return (VOM::log_level_t::INFO);
 }
 
-VPPRenderer::VPPRenderer(opflexagent::Agent &agent, IdGenerator &idGen,
-                         VOM::HW::cmd_q *vppQ, VppManager *vppManager)
+VppRenderer::VppRenderer(opflexagent::Agent &agent,
+                         IdGenerator &idGen,
+                         VOM::HW::cmd_q *vppQ,
+                         VppManager *vppManager)
     : Renderer(agent)
     , idGen(idGen)
     , vppQ(vppQ)
@@ -80,13 +84,14 @@ VPPRenderer::VPPRenderer(opflexagent::Agent &agent, IdGenerator &idGen,
     VOM::logger().set(&vppLogHandler);
 }
 
-VPPRenderer::~VPPRenderer()
+VppRenderer::~VppRenderer()
 {
     delete vppQ;
     delete vppManager;
 }
 
-void VPPRenderer::setProperties(const boost::property_tree::ptree &properties)
+void
+VppRenderer::setProperties(const boost::property_tree::ptree &properties)
 {
     // Set configuration from property tree.  This configuration will
     // be from a "renderers": { "vpp" { } } block from the agent
@@ -165,7 +170,8 @@ void VPPRenderer::setProperties(const boost::property_tree::ptree &properties)
             vppManager->uplink().set(
                 vxlan.get().get<std::string>(UPLINK_IFACE, ""),
                 vxlan.get().get<uint16_t>(UPLINK_VLAN, 0),
-                vxlan.get().get<std::string>(ENCAP_IFACE, ""), remote_ip,
+                vxlan.get().get<std::string>(ENCAP_IFACE, ""),
+                remote_ip,
                 vxlan.get().get<uint16_t>(REMOTE_PORT, 4789));
             auto slaves = properties.get_child_optional(UPLINK_SLAVES);
         }
@@ -213,7 +219,8 @@ void VPPRenderer::setProperties(const boost::property_tree::ptree &properties)
     }
 }
 
-void VPPRenderer::start()
+void
+VppRenderer::start()
 {
     // Called during agent startup
     if (started) return;
@@ -223,7 +230,8 @@ void VPPRenderer::start()
     LOG(opflexagent::INFO) << "Starting vpp renderer plugin";
 }
 
-void VPPRenderer::stop()
+void
+VppRenderer::stop()
 {
     // Called during agent shutdown
     if (!started) return;
@@ -234,10 +242,11 @@ void VPPRenderer::stop()
 
 } /* namespace vpprenderer */
 
-extern "C" const opflexagent::RendererPlugin *init_renderer_plugin()
+extern "C" const opflexagent::RendererPlugin *
+init_renderer_plugin()
 {
     // Return a plugin implementation, which can ini
-    static const VPP::VPPRendererPlugin vppPlugin;
+    static const VPP::VppRendererPlugin vppPlugin;
 
     return &vppPlugin;
 }

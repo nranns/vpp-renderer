@@ -1,11 +1,14 @@
 BasedOnStyle: LLVM
 IndentWidth: 4
-AlignAfterOpenBracket: true
-AllowAllParametersOfDeclarationOnNextLine: false
+AlignAfterOpenBracket: Align
+AllowAllParametersOfDeclarationOnNextLine: true
 AllowShortBlocksOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: false
 AllowShortIfStatementsOnASingleLine: true
+AlwaysBreakAfterDefinitionReturnType: All
+BinPackParameters: false
+BinPackArguments: false
 BreakBeforeBraces: Custom
 BraceWrapping:
   AfterEnum: true

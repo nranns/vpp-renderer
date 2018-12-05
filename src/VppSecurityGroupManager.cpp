@@ -15,12 +15,21 @@
 #include <modelgbp/l2/EtherTypeEnumT.hpp>
 #include <modelgbp/l4/TcpFlagsEnumT.hpp>
 
+#include <vom/acl_binding.hpp>
+
+#include "VppEndPointManager.hpp"
 #include "VppLog.hpp"
 #include "VppSecurityGroupManager.hpp"
 
 namespace VPP
 {
-void setParamUpdate(modelgbp::gbpe::L24Classifier &cls, ACL::l3_rule &rule)
+SecurityGroupManager::SecurityGroupManager(opflexagent::Agent &agent)
+    : m_agent(agent)
+{
+}
+
+void
+setParamUpdate(modelgbp::gbpe::L24Classifier &cls, ACL::l3_rule &rule)
 {
     using modelgbp::l4::TcpFlagsEnumT;
 
@@ -75,10 +84,12 @@ void setParamUpdate(modelgbp::gbpe::L24Classifier &cls, ACL::l3_rule &rule)
     }
 }
 
-void SecurityGroupManager::build_update(
+void
+SecurityGroupManager::build_update(
     opflexagent::Agent &agent,
     const opflexagent::EndpointListener::uri_set_t &secGrps,
-    const std::string &secGrpId, ACL::l3_list::rules_t &in_rules,
+    const std::string &secGrpId,
+    ACL::l3_list::rules_t &in_rules,
     ACL::l3_list::rules_t &out_rules,
     ACL::acl_ethertype::ethertype_rules_t &ethertype_rules)
 {
@@ -88,7 +99,7 @@ void SecurityGroupManager::build_update(
         return;
     }
 
-    OLOGD << "building security group update";
+    VLOGD << "building security group update";
 
     for (const opflex::modb::URI &secGrp : secGrps)
     {
@@ -125,7 +136,7 @@ void SecurityGroupManager::build_update(
             if (etherType != modelgbp::l2::EtherTypeEnumT::CONST_IPV4 &&
                 etherType != modelgbp::l2::EtherTypeEnumT::CONST_IPV6)
             {
-                OLOGW << "Security Group Rule for Protocol "
+                VLOGW << "Security Group Rule for Protocol "
                       << etherType.to_string() << " ,(IPv4/IPv6) Security"
                       << "Rules are allowed";
                 continue;
@@ -205,7 +216,8 @@ void SecurityGroupManager::build_update(
     }
 }
 
-std::string SecurityGroupManager::get_id(
+std::string
+SecurityGroupManager::get_id(
     const opflexagent::EndpointListener::uri_set_t &secGrps)
 {
     std::stringstream ss;
@@ -217,6 +229,76 @@ std::string SecurityGroupManager::get_id(
         ss << uri.toString();
     }
     return ss.str();
+}
+
+void
+SecurityGroupManager::handle_set_update(
+    const opflexagent::EndpointListener::uri_set_t &secGrps)
+{
+    VLOGD << "Updating security group set";
+
+    ACL::l3_list::rules_t in_rules, out_rules;
+    ACL::acl_ethertype::ethertype_rules_t ethertype_rules;
+    const std::string secGrpId = get_id(secGrps);
+    std::shared_ptr<ACL::l3_list> in_acl, out_acl;
+
+    build_update(
+        m_agent, secGrps, secGrpId, in_rules, out_rules, ethertype_rules);
+
+    if (in_rules.empty() && out_rules.empty() && ethertype_rules.empty())
+    {
+        VLOGW << "in and out rules are empty";
+        return;
+    }
+
+    opflexagent::EndpointManager &epMgr = m_agent.getEndpointManager();
+    std::unordered_set<std::string> eps;
+    epMgr.getEndpointsForSecGrps(secGrps, eps);
+
+    for (const std::string &uuid : eps)
+    {
+        OM::mark_n_sweep ms(uuid);
+
+        const opflexagent::Endpoint &endPoint = *epMgr.getEndpoint(uuid).get();
+        const std::string vppInterfaceName =
+            EndPointManager::get_ep_interface_name(endPoint);
+
+        if (0 == vppInterfaceName.length()) continue;
+
+        std::shared_ptr<interface> itf = interface::find(vppInterfaceName);
+
+        if (!itf) continue;
+
+        if (!ethertype_rules.empty())
+        {
+            ACL::acl_ethertype a_e(*itf, ethertype_rules);
+            OM::write(uuid, a_e);
+        }
+        if (!in_rules.empty())
+        {
+            ACL::l3_list inAcl(secGrpId + "in", in_rules);
+            OM::write(uuid, inAcl);
+
+            ACL::l3_binding in_binding(direction_t::INPUT, *itf, inAcl);
+            OM::write(uuid, in_binding);
+        }
+        if (!out_rules.empty())
+        {
+            ACL::l3_list outAcl(secGrpId + "out", out_rules);
+            OM::write(uuid, outAcl);
+            ACL::l3_binding out_binding(direction_t::OUTPUT, *itf, outAcl);
+            OM::write(uuid, out_binding);
+        }
+    }
+}
+
+void
+SecurityGroupManager::handle_update(const opflex::modb::URI &uri)
+{
+    std::unordered_set<opflexagent::EndpointListener::uri_set_t> secGrpSets;
+    m_agent.getEndpointManager().getSecGrpSetsForSecGrp(uri, secGrpSets);
+    for (auto &secGrpSet : secGrpSets)
+        handle_set_update(secGrpSet);
 }
 
 }; // namepsace VPP
