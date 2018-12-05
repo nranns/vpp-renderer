@@ -7,21 +7,31 @@
  * and is available at http://www.eclipse.org/legal/epl-v10.html
  */
 
-#include "VppVirtualRouter.h"
+#ifndef __VPP_ID_GEN_H__
+#define __VPP_ID_GEN_H__
+
+#include <opflexagent/IdGenerator.h>
 
 namespace VPP
 {
-
-VirtualRouter::VirtualRouter(const VOM::mac_address_t &mac)
-    : m_mac(mac)
+class IdGen
 {
-}
+  public:
+    IdGen(opflexagent::IdGenerator &idGen);
 
-const VOM::mac_address_t &VirtualRouter::mac() const
-{
-    return (m_mac);
-}
-}
+    uint32_t get(opflex::modb::class_id_t cid, const opflex::modb::URI &uri);
+
+    void erase(opflex::modb::class_id_t cid, const opflex::modb::URI &uri);
+
+  private:
+    const char *get_namespace(opflex::modb::class_id_t cid);
+
+    opflexagent::IdGenerator &m_id_gen;
+};
+
+} // namespace VPP
+
+#endif
 
 /*
  * Local Variables:

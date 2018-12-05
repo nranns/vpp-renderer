@@ -407,7 +407,7 @@ public:
     IdGenerator idGen;
     MockCmdQ vppQ;
 
-    VppManager vppManager;
+    VPP::VppManager vppManager;
 
     /**
      * To assist in checking the state that is present manually do

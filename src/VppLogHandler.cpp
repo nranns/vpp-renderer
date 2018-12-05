@@ -14,12 +14,14 @@
 #include "VppLogHandler.h"
 #include <opflexagent/logging.h>
 
-namespace opflexagent {
+namespace VPP
+{
 
-void VppLogHandler::handle_message(const std::string& file, const int line,
-                                   const std::string& function,
-                                   const VOM::log_level_t& level,
-                                   const std::string& message) {
+void LogHandler::handle_message(const std::string &file, const int line,
+                                const std::string &function,
+                                const VOM::log_level_t &level,
+                                const std::string &message)
+{
     opflexagent::LogLevel agentLevel = opflexagent::INFO;
 
     if (VOM::log_level_t::DEBUG == level)

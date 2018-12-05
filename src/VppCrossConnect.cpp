@@ -18,36 +18,38 @@
 
 using namespace VOM;
 
-namespace VPP {
+namespace VPP
+{
 
 static const std::string XCONNECT_KEY = "__xconnect__";
 
-CrossConnect::xconnect_t::xconnect_t(const std::string& name,
-                                     uint16_t vlan,
+CrossConnect::xconnect_t::xconnect_t(const std::string &name, uint16_t vlan,
                                      std::string ip_address)
     : name(name)
     , vlan(vlan)
     , ip(boost::asio::ip::address::from_string(ip_address))
-{}
+{
+}
 
 std::string CrossConnect::xconnect_t::to_string() const
 {
-  std::ostringstream s;
-  s << "[itf:" << name << " vlan:" << vlan << " ip:" << ip.to_string() << "]";
+    std::ostringstream s;
+    s << "[itf:" << name << " vlan:" << vlan << " ip:" << ip.to_string() << "]";
 
-  return (s.str());
+    return (s.str());
 }
 
 CrossConnect::CrossConnect()
-{}
-
+{
+}
 
 void CrossConnect::insert_xconnect(CrossConnect::xconnect xconn)
 {
     this->xconnects.push_back(xconn);
 }
 
-static VOM::interface::type_t getIntfTypeFromName(std::string& name) {
+static VOM::interface::type_t getIntfTypeFromName(std::string &name)
+{
     if (name.find("Bond") != std::string::npos)
         return VOM::interface::type_t::BOND;
     else if (name.find("Ethernet") != std::string::npos)
@@ -61,45 +63,61 @@ static VOM::interface::type_t getIntfTypeFromName(std::string& name) {
 void CrossConnect::configure_xconnect()
 {
 
-    for (auto it : xconnects) {
+    LOG(opflexagent::INFO) << "configure";
+
+    for (auto it : xconnects)
+    {
         std::shared_ptr<interface> itf_ptr, xitf_ptr;
         VOM::interface::type_t type = getIntfTypeFromName(it.first.name);
-        if (type == VOM::interface::type_t::TAPV2) {
+        if (type == VOM::interface::type_t::TAPV2)
+        {
             VOM::route::prefix_t pfx(it.first.ip, 24);
             tap_interface itf(it.first.name, interface::admin_state_t::UP, pfx);
             OM::write(XCONNECT_KEY, itf);
             itf_ptr = itf.singular();
-        } else {
+        }
+        else
+        {
             interface itf(it.first.name, type, interface::admin_state_t::UP);
             OM::write(XCONNECT_KEY, itf);
             itf_ptr = itf.singular();
         }
-        if (it.first.vlan) {
+        if (it.first.vlan)
+        {
             /*
-             * now create the sub-interface on which control and data traffic from
+             * now create the sub-interface on which control and data traffic
+             * from
              * the upstream will arrive
              */
-            sub_interface subitf(*itf_ptr, interface::admin_state_t::UP, it.first.vlan);
+            sub_interface subitf(*itf_ptr, interface::admin_state_t::UP,
+                                 it.first.vlan);
             OM::write(XCONNECT_KEY, subitf);
             itf_ptr = subitf.singular();
         }
         VOM::interface::type_t type2 = getIntfTypeFromName(it.second.name);
-        if (type2 == VOM::interface::type_t::TAPV2) {
+        if (type2 == VOM::interface::type_t::TAPV2)
+        {
             VOM::route::prefix_t pfx(it.second.ip, 24);
-            tap_interface xitf(it.second.name, interface::admin_state_t::UP, pfx);
+            tap_interface xitf(it.second.name, interface::admin_state_t::UP,
+                               pfx);
             OM::write(XCONNECT_KEY, xitf);
             xitf_ptr = xitf.singular();
-        } else {
+        }
+        else
+        {
             interface xitf(it.second.name, type2, interface::admin_state_t::UP);
             OM::write(XCONNECT_KEY, xitf);
             xitf_ptr = xitf.singular();
         }
-        if (it.second.vlan) {
+        if (it.second.vlan)
+        {
             /*
-             * now create the sub-interface on which control and data traffic from
+             * now create the sub-interface on which control and data traffic
+             * from
              * the upstream will arrive
              */
-            sub_interface xsubitf(*xitf_ptr, interface::admin_state_t::UP, it.second.vlan);
+            sub_interface xsubitf(*xitf_ptr, interface::admin_state_t::UP,
+                                  it.second.vlan);
             OM::write(XCONNECT_KEY, xsubitf);
             xitf_ptr = xsubitf.singular();
         }

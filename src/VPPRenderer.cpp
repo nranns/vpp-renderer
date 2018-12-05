@@ -15,31 +15,34 @@
 #include "VPPRenderer.h"
 #include "VppLogHandler.h"
 
-namespace vpprenderer {
+namespace VPP
+{
 
 using std::bind;
 using opflex::ofcore::OFFramework;
 using boost::property_tree::ptree;
 using boost::asio::placeholders::error;
 
-VPPRendererPlugin::VPPRendererPlugin() {
+VPPRendererPlugin::VPPRendererPlugin()
+{
 }
 
-
-std::unordered_set<std::string> VPPRendererPlugin::getNames() const {
+std::unordered_set<std::string> VPPRendererPlugin::getNames() const
+{
     return {"vpp"};
 }
 
-opflexagent::Renderer*
-VPPRendererPlugin::create(opflexagent::Agent& agent) const {
+opflexagent::Renderer *
+VPPRendererPlugin::create(opflexagent::Agent &agent) const
+{
 
     IdGenerator *idGen = new IdGenerator();
-    VOM::HW::cmd_q *vppQ =  new VOM::HW::cmd_q();
+    VOM::HW::cmd_q *vppQ = new VOM::HW::cmd_q();
     VppManager *vppManager = new VppManager(agent, *idGen, vppQ);
-    return new VPPRenderer(agent, idGen, vppQ, vppManager);
+    return new VPPRenderer(agent, *idGen, vppQ, vppManager);
 }
 
-VppLogHandler vppLogHandler;
+VPP::LogHandler vppLogHandler;
 
 static VOM::log_level_t agentLevelToVom(opflexagent::LogLevel level)
 {
@@ -59,10 +62,14 @@ static VOM::log_level_t agentLevelToVom(opflexagent::LogLevel level)
     return (VOM::log_level_t::INFO);
 }
 
-VPPRenderer::VPPRenderer(opflexagent::Agent& agent, IdGenerator *idGen,
+VPPRenderer::VPPRenderer(opflexagent::Agent &agent, IdGenerator &idGen,
                          VOM::HW::cmd_q *vppQ, VppManager *vppManager)
-    : Renderer(agent), idGen(idGen), vppQ(vppQ), vppManager(vppManager),
-      started(false) {
+    : Renderer(agent)
+    , idGen(idGen)
+    , vppQ(vppQ)
+    , vppManager(vppManager)
+    , started(false)
+{
     LOG(INFO) << "Vpp Renderer";
 
     /*
@@ -73,14 +80,14 @@ VPPRenderer::VPPRenderer(opflexagent::Agent& agent, IdGenerator *idGen,
     VOM::logger().set(&vppLogHandler);
 }
 
-VPPRenderer::~VPPRenderer() {
-    delete idGen;
+VPPRenderer::~VPPRenderer()
+{
     delete vppQ;
     delete vppManager;
 }
 
-void VPPRenderer::
-setProperties(const boost::property_tree::ptree& properties) {
+void VPPRenderer::setProperties(const boost::property_tree::ptree &properties)
+{
     // Set configuration from property tree.  This configuration will
     // be from a "renderers": { "vpp" { } } block from the agent
     // configuration.  Multiple calls are possible; later calls are
@@ -114,37 +121,47 @@ setProperties(const boost::property_tree::ptree& properties) {
     auto vr = properties.get_child_optional(VIRTUAL_ROUTER);
     auto x_connect = properties.get_child_optional(CROSS_CONNECT);
 
-    if (vlan) {
+    if (vlan)
+    {
         vppManager->uplink().set(vlan.get().get<std::string>(UPLINK_IFACE, ""),
-                                vlan.get().get<uint16_t>(UPLINK_VLAN, 0),
-                                vlan.get().get<std::string>(ENCAP_IFACE, ""));
+                                 vlan.get().get<uint16_t>(UPLINK_VLAN, 0),
+                                 vlan.get().get<std::string>(ENCAP_IFACE, ""));
         auto slaves = vlan.get().get_child_optional(UPLINK_SLAVES);
 
-        if (slaves) {
-            for (auto s : slaves.get()) {
+        if (slaves)
+        {
+            for (auto s : slaves.get())
+            {
                 vppManager->uplink().insert_slave_ifaces(s.second.data());
                 LOG(opflexagent::INFO) << s.second.data();
             }
         }
         auto dhcp_options = vlan.get().get_child_optional(DHCP_OPTIONS);
-        if (dhcp_options) {
-            for (auto d : dhcp_options.get()) {
+        if (dhcp_options)
+        {
+            for (auto d : dhcp_options.get())
+            {
                 vppManager->uplink().insert_dhcp_options(d.second.data());
                 LOG(opflexagent::INFO) << d.second.data();
             }
         }
-    } else if (vxlan) {
+    }
+    else if (vxlan)
+    {
         boost::asio::ip::address remote_ip;
         boost::system::error_code ec;
 
         remote_ip = boost::asio::ip::address::from_string(
             vxlan.get().get<std::string>(REMOTE_IP, ""));
 
-        if (ec) {
+        if (ec)
+        {
             LOG(ERROR) << "Invalid tunnel destination IP: "
                        << vxlan.get().get<std::string>(REMOTE_IP, "") << ": "
                        << ec.message();
-        } else {
+        }
+        else
+        {
             vppManager->uplink().set(
                 vxlan.get().get<std::string>(UPLINK_IFACE, ""),
                 vxlan.get().get<uint16_t>(UPLINK_VLAN, 0),
@@ -153,28 +170,32 @@ setProperties(const boost::property_tree::ptree& properties) {
             auto slaves = properties.get_child_optional(UPLINK_SLAVES);
         }
     }
-    if (vr) {
+    if (vr)
+    {
         vppManager->setVirtualRouter(
             vr.get().get<bool>(VIRTUAL_ROUTER, true),
             vr.get().get<bool>(VIRTUAL_ROUTER_RA, true),
             vr.get().get<std::string>(VIRTUAL_ROUTER_MAC, "00:22:bd:f8:19:ff"));
     }
 
-    if (x_connect) {
-        for (auto x : x_connect.get()) {
+    if (x_connect)
+    {
+        for (auto x : x_connect.get())
+        {
             auto east = x.second.get_child_optional(EAST);
             auto west = x.second.get_child_optional(WEST);
-            if (east && west) {
+            if (east && west)
+            {
                 VPP::CrossConnect::xconnect_t xcon_east(
-                                east.get().get<std::string>(IFACE, ""),
-                                east.get().get<uint16_t>(VLAN, 0),
-                                east.get().get<std::string>(IP, ""));
-		VPP::CrossConnect::xconnect_t xcon_west(
-                                west.get().get<std::string>(IFACE, ""),
-                                west.get().get<uint16_t>(VLAN, 0),
-                                west.get().get<std::string>(IP, ""));
+                    east.get().get<std::string>(IFACE, ""),
+                    east.get().get<uint16_t>(VLAN, 0),
+                    east.get().get<std::string>(IP, ""));
+                VPP::CrossConnect::xconnect_t xcon_west(
+                    west.get().get<std::string>(IFACE, ""),
+                    west.get().get<uint16_t>(VLAN, 0),
+                    west.get().get<std::string>(IP, ""));
                 vppManager->crossConnect().insert_xconnect(
-                                std::make_pair(xcon_east, xcon_west));
+                    std::make_pair(xcon_east, xcon_west));
                 LOG(opflexagent::INFO) << xcon_east.to_string();
                 LOG(opflexagent::INFO) << xcon_west.to_string();
             }
@@ -186,25 +207,26 @@ setProperties(const boost::property_tree::ptree& properties) {
      */
     auto inspect = properties.get<std::string>("inspect-socket", "");
 
-    if (inspect.length()) {
+    if (inspect.length())
+    {
         inspector.reset(new VppInspect(inspect));
     }
 }
 
-void VPPRenderer::start() {
+void VPPRenderer::start()
+{
     // Called during agent startup
-    if (started)
-        return;
+    if (started) return;
     started = true;
     vppManager->start();
     vppManager->registerModbListeners();
     LOG(opflexagent::INFO) << "Starting vpp renderer plugin";
 }
 
-void VPPRenderer::stop() {
+void VPPRenderer::stop()
+{
     // Called during agent shutdown
-    if (!started)
-        return;
+    if (!started) return;
     started = false;
     LOG(opflexagent::INFO) << "Stopping vpp renderer plugin";
     vppManager->stop();
@@ -212,9 +234,10 @@ void VPPRenderer::stop() {
 
 } /* namespace vpprenderer */
 
-extern "C" const opflexagent::RendererPlugin* init_renderer_plugin() {
+extern "C" const opflexagent::RendererPlugin *init_renderer_plugin()
+{
     // Return a plugin implementation, which can ini
-    static const vpprenderer::VPPRendererPlugin vppPlugin;
+    static const VPP::VPPRendererPlugin vppPlugin;
 
     return &vppPlugin;
 }

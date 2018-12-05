@@ -13,30 +13,31 @@
 #ifndef VPPRENDERER_H
 #define VPPRENDERER_H
 
-#include <opflexagent/IdGenerator.h>
-#include <opflexagent/Renderer.h>
-#include <boost/property_tree/ptree.hpp>
-#include <opflex/ofcore/OFFramework.h>
-#include <vom/hw.hpp>
 #include "VppInspect.h"
 #include "VppManager.h"
+#include <boost/property_tree/ptree.hpp>
+#include <opflex/ofcore/OFFramework.h>
+#include <opflexagent/IdGenerator.h>
+#include <opflexagent/Renderer.h>
+#include <vom/hw.hpp>
 
 using namespace opflexagent;
 
-namespace vpprenderer {
-
+namespace VPP
+{
 /**
  * The vpp renderer demonstrates how to create a renderer plugin
  * for OpFlex agent.
  */
-class VPPRenderer : public opflexagent::Renderer {
-public:
+class VPPRenderer : public opflexagent::Renderer
+{
+  public:
     /**
      * Instantiate a vpp renderer
      *
      * @param agent the agent object
      */
-    VPPRenderer(opflexagent::Agent& agent, IdGenerator *idGen,
+    VPPRenderer(opflexagent::Agent &agent, IdGenerator &idGen,
                 VOM::HW::cmd_q *vppQ, VppManager *vppManager);
 
     /**
@@ -48,11 +49,11 @@ public:
     // Renderer
     // ********
 
-    virtual void setProperties(const boost::property_tree::ptree& properties);
+    virtual void setProperties(const boost::property_tree::ptree &properties);
     virtual void start();
     virtual void stop();
 
-private:
+  private:
     /**
      * The socket used for inspecting the state built in VPP-manager
      */
@@ -61,17 +62,17 @@ private:
     /**
      * ID generator
      */
-    IdGenerator* idGen;
+    IdGenerator &idGen;
 
     /**
      * HW cmd_q
      */
-    VOM::HW::cmd_q* vppQ;
+    VOM::HW::cmd_q *vppQ;
 
     /**
      * Single instance of the VPP manager
      */
-    VppManager* vppManager;
+    VppManager *vppManager;
 
     /**
      * has this party started.
@@ -83,15 +84,16 @@ private:
  * Plugin implementation for dynamically loading vpp
  * renderer.
  */
-class VPPRendererPlugin : public opflexagent::RendererPlugin {
-public:
+class VPPRendererPlugin : public opflexagent::RendererPlugin
+{
+  public:
     VPPRendererPlugin();
 
     // **************
     // RendererPlugin
     // **************
     virtual std::unordered_set<std::string> getNames() const;
-    virtual opflexagent::Renderer* create(opflexagent::Agent& agent) const;
+    virtual opflexagent::Renderer *create(opflexagent::Agent &agent) const;
 };
 
 } /* namespace vpprenderer */
@@ -99,6 +101,6 @@ public:
 /**
  * Return a non-owning pointer to the renderer plugin instance.
  */
-extern "C" const opflexagent::RendererPlugin* init_renderer_plugin();
+extern "C" const opflexagent::RendererPlugin *init_renderer_plugin();
 
 #endif /* VPPRENDERER_H */

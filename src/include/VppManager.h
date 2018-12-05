@@ -7,8 +7,8 @@
  * and is available at http://www.eclipse.org/legal/epl-v10.html
  */
 
-#ifndef OPFLEXAGENT_VPPMANAGER_H_
-#define OPFLEXAGENT_VPPMANAGER_H_
+#ifndef __VPP_MANAGER_H__
+#define __VPP_MANAGER_H__
 
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/ip/address.hpp>
@@ -27,23 +27,28 @@
 
 #include "opflexagent/Agent.h"
 #include "opflexagent/EndpointManager.h"
-#include "opflexagent/IdGenerator.h"
 #include "opflexagent/RDConfig.h"
 #include "opflexagent/TaskQueue.h"
 
 #include "VppCrossConnect.h"
+#include "VppIdGen.hpp"
+#include "VppSpineProxy.hpp"
 #include "VppUplink.h"
 #include "VppVirtualRouter.h"
 
 /*
  * Forward declare classes to reduce compile time coupling
  */
-namespace VOM {
-class bridge_domain;
+namespace VOM
+{
 class gbp_endpoint_group;
 };
 
-namespace opflexagent {
+namespace VPP
+{
+class EndPointManager;
+class EndPointGroupManager;
+class SecurityGroupManager;
 
 /**
  * @brief Makes changes to VPP to be in sync with state of MOs.
@@ -51,23 +56,27 @@ namespace opflexagent {
  * of config modifications that represent the changes and apply these
  * modifications.
  */
-class VppManager : public EndpointListener,
-                   public ServiceListener,
-                   public ExtraConfigListener,
-                   public PolicyListener,
+class VppManager : public opflexagent::EndpointListener,
+                   public opflexagent::ServiceListener,
+                   public opflexagent::ExtraConfigListener,
+                   public opflexagent::PolicyListener,
                    public opflex::ofcore::PeerStatusListener,
-                   public VOM::interface::event_listener,
-                   public VOM::interface::stat_listener,
-                   private boost::noncopyable {
-public:
+                   public interface::event_listener,
+                   public Uplink::Listener,
+                   private boost::noncopyable
+{
+  public:
     /**
      * Construct a new Vpp manager for the agent
      * @param agent the agent object
      * @param idGen the flow ID generator
      */
-    VppManager(Agent& agent, IdGenerator& idGen, VOM::HW::cmd_q* q);
+    VppManager(opflexagent::Agent &agent, opflexagent::IdGenerator &idGen,
+               VOM::HW::cmd_q *q);
 
-    ~VppManager() {}
+    ~VppManager()
+    {
+    }
 
     /**
      * Module start
@@ -93,29 +102,29 @@ public:
      * as a colon-separated string of 6 hex-encoded bytes.
      */
     void setVirtualRouter(bool virtualRouterEnabled, bool routerAdv,
-                          const std::string& mac);
+                          const std::string &mac);
 
     /* Interface: EndpointListener */
-    virtual void endpointUpdated(const std::string& uuid);
+    virtual void endpointUpdated(const std::string &uuid);
 
     /* Interface: ServiceListener */
-    virtual void serviceUpdated(const std::string& uuid);
+    virtual void serviceUpdated(const std::string &uuid);
 
     /* Interface: ExtraConfigListener */
-    virtual void rdConfigUpdated(const opflex::modb::URI& rdURI);
+    virtual void rdConfigUpdated(const opflex::modb::URI &rdURI);
 
     /* Interface: PolicyListener */
-    virtual void egDomainUpdated(const opflex::modb::URI& egURI);
+    virtual void egDomainUpdated(const opflex::modb::URI &egURI);
     virtual void domainUpdated(opflex::modb::class_id_t cid,
-                               const opflex::modb::URI& domURI);
-    virtual void contractUpdated(const opflex::modb::URI& contractURI);
-    virtual void configUpdated(const opflex::modb::URI& configURI);
+                               const opflex::modb::URI &domURI);
+    virtual void contractUpdated(const opflex::modb::URI &contractURI);
+    virtual void configUpdated(const opflex::modb::URI &configURI);
 
-    virtual void secGroupSetUpdated(const EndpointListener::uri_set_t& secGrps);
-    virtual void secGroupUpdated(const opflex::modb::URI&);
+    virtual void secGroupSetUpdated(const EndpointListener::uri_set_t &secGrps);
+    virtual void secGroupUpdated(const opflex::modb::URI &);
 
     /* Interface: PortStatusListener */
-    virtual void portStatusUpdate(const std::string& portName, uint32_t portNo,
+    virtual void portStatusUpdate(const std::string &portName, uint32_t portNo,
                                   bool fromDesc);
 
     /**
@@ -125,7 +134,7 @@ public:
      * @param peerPort the port number for the connection
      * @param peerStatus the new status for the connection
      */
-    virtual void peerStatusUpdated(const std::string& peerHostname,
+    virtual void peerStatusUpdated(const std::string &peerHostname,
                                    int peerPort, PeerStatus peerStatus);
 
     /**
@@ -135,38 +144,25 @@ public:
      * @param uri URI of the object
      * @return A unique ID for the object
      */
-    uint32_t getId(opflex::modb::class_id_t cid, const opflex::modb::URI& uri);
+    uint32_t getId(opflex::modb::class_id_t cid, const opflex::modb::URI &uri);
 
     /**
      * Return the uplink object
      */
-    VPP::Uplink& uplink();
+    VPP::Uplink &uplink();
 
     /**
      * Return the cross connect object
      */
-    VPP::CrossConnect& crossConnect();
-private:
-    /**
-     * Compare and update changes in an endpoint.
-     *
-     * @param uuid UUID of the changed endpoint
-     */
-    void handleEndpointUpdate(const std::string& uuid);
+    VPP::CrossConnect &crossConnect();
 
-    /**
-     * Compare and update changes in an endpoint group.
-     *
-     * @param egURI URI of the changed endpoint group
-     */
-    void handleEndpointGroupDomainUpdate(const opflex::modb::URI& egURI);
-
+  private:
     /**
      * Update given routing domain
      *
      * @param rdURI URI of the changed routing domain
      */
-    void handleRoutingDomainUpdate(const opflex::modb::URI& rdURI);
+    void handleRoutingDomainUpdate(const opflex::modb::URI &rdURI);
 
     /**
      * Handle changes to a forwarding domain; only deals with
@@ -176,39 +172,30 @@ private:
      * @param domURI URI of the changed forwarding domain
      */
     void handleDomainUpdate(opflex::modb::class_id_t cid,
-                            const opflex::modb::URI& domURI);
+                            const opflex::modb::URI &domURI);
 
     /**
      * Compare and update changes in a contract
      *
      * @param contractURI URI of the changed contract
      */
-    void handleContractUpdate(const opflex::modb::URI& contractURI);
+    void handleContractUpdate(const opflex::modb::URI &contractURI);
 
     /**
      * Openstack Security Group
      */
-    void handleSecGrpUpdate(const opflex::modb::URI& uri);
+    void handleSecGrpUpdate(const opflex::modb::URI &uri);
 
     /**
      * Openstack Security Group Set
      */
-    void handleSecGrpSetUpdate(const EndpointListener::uri_set_t& secGrps);
-    void allowDhcpRequest(VOM::ACL::l3_list::rules_t& in_rules,
-                          VOM::ACL::l3_list::rules_t& out_rules,
-                          uint16_t etherType);
-    void buildSecGrpSetUpdate(const uri_set_t& secGrps,
-                              const std::string& secGrpId,
-                              VOM::ACL::l3_list::rules_t& in_rules,
-                              VOM::ACL::l3_list::rules_t& out_rules,
-                              VOM::ACL::acl_ethertype::ethertype_rules_t&
-                              ethertype_rules);
+    void handleSecGrpSetUpdate(const EndpointListener::uri_set_t &secGrps);
     /**
      * Compare and update changes in platform config
      *
      * @param configURI URI of the changed contract
      */
-    void handleConfigUpdate(const opflex::modb::URI& configURI);
+    void handleConfigUpdate(const opflex::modb::URI &configURI);
 
     /**
      * Handle changes to port-status for endpoints and endpoint groups.
@@ -216,7 +203,7 @@ private:
      * @param portName Name of the port that changed
      * @param portNo Port number of the port that changed
      */
-    void handlePortStatusUpdate(const std::string& portName, uint32_t portNo);
+    void handlePortStatusUpdate(const std::string &portName, uint32_t portNo);
 
     /**
      * Get the VNID for the specified endpoint groups or L3 external
@@ -225,39 +212,39 @@ private:
      * @param uris URIs of endpoint groups to search for
      * @param ids the corresponding set of vnids
      */
-    void getGroupVnid(const std::unordered_set<opflex::modb::URI>& uris,
-                      std::unordered_set<uint32_t>& ids);
-    uint32_t getExtNetVnid(const opflex::modb::URI& uri);
+    void getGroupVnid(const std::unordered_set<opflex::modb::URI> &uris,
+                      std::unordered_set<uint32_t> &ids);
+    uint32_t getExtNetVnid(const opflex::modb::URI &uri);
 
-    bool getGroupForwardingInfo(const opflex::modb::URI& egUri, uint32_t& vnid,
-                                boost::optional<opflex::modb::URI>& rdURI,
-                                uint32_t& rdId,
-                                boost::optional<opflex::modb::URI>& bdURI,
-                                uint32_t& bdId);
-    void updateGroupSubnets(const opflex::modb::URI& egUri, uint32_t bdId,
+    bool getGroupForwardingInfo(const opflex::modb::URI &egUri, uint32_t &vnid,
+                                boost::optional<opflex::modb::URI> &rdURI,
+                                uint32_t &rdId,
+                                boost::optional<opflex::modb::URI> &bdURI,
+                                uint32_t &bdId);
+    void updateGroupSubnets(const opflex::modb::URI &egUri, uint32_t bdId,
                             uint32_t rdId);
-    void updateEPGFlood(const opflex::modb::URI& epgURI, uint32_t epgVnid,
+    void updateEPGFlood(const opflex::modb::URI &epgURI, uint32_t epgVnid,
                         uint32_t fgrpId, boost::asio::ip::address epgTunDst);
 
     /**
      * Event listener override to get Interface events
      */
-    void handle_interface_event(VOM::interface_cmds::events_cmd* e);
+    void handle_interface_event(VOM::interface_cmds::events_cmd *e);
 
     /**
      * Handle interface event in the task-queue context
      */
-    void handleInterfaceEvent(VOM::interface_cmds::events_cmd* e);
-
-    /**
-     * Event listener override to get Interface stats
-     */
-    void handle_interface_stat(VOM::interface_cmds::stats_enable_cmd* e);
+    void handleInterfaceEvent(VOM::interface_cmds::events_cmd *e);
 
     /**
      * Handle interface stats in the task-queue context
      */
-    void handleInterfaceStat(VOM::interface_cmds::stats_enable_cmd* e);
+    void handleInterfaceStat(VOM::interface_cmds::stats_enable_cmd *e);
+
+    /**
+     * Handle notification that the uplnik is configured and ready for use
+     */
+    void handle_uplink_ready();
 
     /**
      * Handle the connect request to VPP
@@ -287,38 +274,39 @@ private:
     /**
      * Import the subnets from an RD into the VRF of a EPG
      */
-    std::shared_ptr<gbp_endpoint_group> getEndPointGroup(const std::string& uuid,
-                                                         const opflex::modb::URI &egpURI);
+    std::shared_ptr<gbp_endpoint_group>
+    getEndPointGroup(const std::string &uuid, const opflex::modb::URI &egpURI);
 
     /**
      * Get the subnet internal to a route domain
      */
-    network::subnets_t getRDSubnets(const opflex::modb::URI& rdURI);
+    opflexagent::network::subnets_t
+    getRDSubnets(const opflex::modb::URI &rdURI);
 
     /**
      * Handle the Vpp sweep timeout
      */
-    void handleSweepTimer(const boost::system::error_code& ec);
+    void handleSweepTimer(const boost::system::error_code &ec);
 
     /**
      * Handle the HW poll timeout
      */
-    void handleHWPollTimer(const boost::system::error_code& ec);
+    void handleHWPollTimer(const boost::system::error_code &ec);
 
     /**
      * Referene to the uber-agent
      */
-    Agent& agent;
+    opflexagent::Agent &agent;
 
     /**
      * Refernece to the ID generator instance
      */
-    IdGenerator& idGen;
+    VPP::IdGen m_id_gen;
 
     /**
      * The internal task-queue for handling the async upates
      */
-    TaskQueue taskQueue;
+    opflexagent::TaskQueue m_task_queue;
 
     /**
      * Virtual Router Settings
@@ -352,11 +340,6 @@ private:
     std::unique_ptr<boost::asio::deadline_timer> m_poll_timer;
 
     /**
-     * Return the namespace name from the ID
-     */
-    const char* getIdNamespace(opflex::modb::class_id_t cid);
-
-    /**
      * indicator this manager is stopping
      */
     volatile bool stopping;
@@ -367,6 +350,18 @@ private:
     bool hw_connected;
 
     void initPlatformConfig();
+
+    /**
+     * Spine Proxy Settings - valid only in transport mode
+     */
+    std::shared_ptr<VPP::SpineProxy> m_spine_proxy;
+
+    /**
+     * objects to delegate task queu events to
+     */
+    std::shared_ptr<EndPointManager> m_epm;
+    std::shared_ptr<EndPointGroupManager> m_epgm;
+    std::shared_ptr<SecurityGroupManager> m_sgm;
 };
 
 } // namespace opflexagent

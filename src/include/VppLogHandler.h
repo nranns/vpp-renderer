@@ -16,35 +16,38 @@
 
 #include <vom/logger.hpp>
 
-namespace opflexagent {
+namespace VPP
+{
 
 /**
  * A VOM log handler that logs to the agnet logging mechanism
  */
-class VppLogHandler : public VOM::log_t::handler {
-public:
+class LogHandler : public VOM::log_t::handler
+{
+  public:
     /**
      * Constructor
      */
-    VppLogHandler() = default;
+    LogHandler() = default;
 
     /**
      * Desctructor
      */
-    ~VppLogHandler() = default;
+    ~LogHandler() = default;
 
     /**
      * Implement log_t::handler::handle_message
      */
-    void handle_message(const std::string& file, const int line,
-                        const std::string& function,
-                        const VOM::log_level_t& level,
-                        const std::string& message);
-private:
+    void handle_message(const std::string &file, const int line,
+                        const std::string &function,
+                        const VOM::log_level_t &level,
+                        const std::string &message);
+
+  private:
     /**
      * Copy Constructor
      */
-    VppLogHandler(const VppLogHandler&) = delete;
+    LogHandler(const LogHandler &) = delete;
 };
 
 } /* namespace opflexagent */

@@ -19,36 +19,39 @@
 
 #include "vom/inspect.hpp"
 
-namespace opflexagent {
+namespace opflexagent
+{
 /**
  * A means to inspect the state VPP has built, in total, and per-client
  * To use do:
  *   socat - UNIX-CONNECT:/path/to/sock/in/opflex.conf
  * and follow the instructions
  */
-class VppInspect {
-public:
+class VppInspect
+{
+  public:
     /**
      * Constructor
      */
-    VppInspect(const std::string& sockname);
+    VppInspect(const std::string &sockname);
 
     /**
      * Destructor to tidyup socket resources
      */
     ~VppInspect();
 
-private:
+  private:
     /**
      * Call operator for running in the thread
      */
-    static void run(void* ctx);
+    static void run(void *ctx);
 
     /**
      * A write request
      */
-    struct write_req_t {
-        write_req_t(std::ostringstream& output);
+    struct write_req_t
+    {
+        write_req_t(std::ostringstream &output);
         ~write_req_t();
 
         uv_write_t req;
@@ -58,34 +61,34 @@ private:
     /**
      * Write a ostream to the client
      */
-    static void do_write(uv_stream_t* client, std::ostringstream& output);
+    static void do_write(uv_stream_t *client, std::ostringstream &output);
 
     /**
      * Called on creation of a new connection
      */
-    static void on_connection(uv_stream_t* server, int status);
+    static void on_connection(uv_stream_t *server, int status);
 
     /**
      * Call when data is written
      */
-    static void on_write(uv_write_t* req, int status);
+    static void on_write(uv_write_t *req, int status);
 
     /**
      * Called when data is read
      */
-    static void on_read(uv_stream_t* client, ssize_t nread,
-                        const uv_buf_t* buf);
+    static void on_read(uv_stream_t *client, ssize_t nread,
+                        const uv_buf_t *buf);
 
     /**
      * Called to allocate buffer space for data to be read
      */
-    static void on_alloc_buffer(uv_handle_t* handle, size_t size,
-                                uv_buf_t* buf);
+    static void on_alloc_buffer(uv_handle_t *handle, size_t size,
+                                uv_buf_t *buf);
 
     /**
      * Called to cleanup the thread and socket during destruction
      */
-    static void on_cleanup(uv_async_t* handle);
+    static void on_cleanup(uv_async_t *handle);
 
     /**
      * Async handle so we can wakeup the loop

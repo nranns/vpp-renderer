@@ -14,25 +14,27 @@
 
 using namespace VOM;
 
-namespace VPP {
+namespace VPP
+{
 /**
  * A description of the VirtualRouter.
  *  Can be one of VLAN< VXLAN or iVXLAN
  */
-class VirtualRouter {
-public:
+class VirtualRouter
+{
+  public:
     /**
      * Default Constructor
      */
-    VirtualRouter(const VOM::mac_address_t& mac);
-    VirtualRouter(const VirtualRouter& vr) = default;
+    VirtualRouter(const VOM::mac_address_t &mac);
+    VirtualRouter(const VirtualRouter &vr) = default;
 
     /**
      * Get the router virtual MAC
      */
-    const VOM::mac_address_t& mac() const;
+    const VOM::mac_address_t &mac() const;
 
-private:
+  private:
     /**
      * Virtual Router Mac
      */

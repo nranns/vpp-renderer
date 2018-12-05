@@ -14,22 +14,24 @@
 
 #include <boost/asio/ip/address.hpp>
 
-namespace VPP {
+namespace VPP
+{
 /**
  * A description of the cross connect class.
  * It will be used for storage, management of storage etc.
  */
 class CrossConnect
 {
-public:
-
+  public:
     /**
      * Default Constructor
      */
     CrossConnect();
 
-    struct xconnect_t {
-        xconnect_t(const std::string& name, uint16_t vlan = 0, std::string ip_address = "");
+    struct xconnect_t
+    {
+        xconnect_t(const std::string &name, uint16_t vlan = 0,
+                   std::string ip_address = "");
         std::string to_string() const;
         std::string name;
         uint16_t vlan;
@@ -47,7 +49,8 @@ public:
      * configure cross connect on interfaces
      */
     void configure_xconnect();
-private:
+
+  private:
     /**
      * The cross connect pairs set
      */

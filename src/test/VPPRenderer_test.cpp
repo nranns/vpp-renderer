@@ -22,10 +22,10 @@ public:
     ~MockCmdQ() {}
 };
 
-class MockVppManager : public opflexagent::VppManager {
+class MockVppManager : public VPP::VppManager {
 public:
     MockVppManager(Agent& agent, IdGenerator& idGen, VOM::HW::cmd_q* q) :
-                   VppManager(agent, idGen, q) {}
+        VppManager(agent, idGen, q) {}
     ~MockVppManager() {}
 
     void start() {
@@ -43,8 +43,8 @@ BOOST_FIXTURE_TEST_CASE(vpp, opflexagent::ModbFixture) {
 
     IdGenerator *idGen = new IdGenerator();
     VOM::HW::cmd_q *vppQ =  new MockCmdQ();
-    VppManager *vppManager = new MockVppManager(agent, *idGen, vppQ);
-    vpprenderer::VPPRenderer vpp(agent, idGen, vppQ, vppManager);
+    VPP::VppManager *vppManager = new MockVppManager(agent, *idGen, vppQ);
+    VPP::VPPRenderer vpp(agent, *idGen, vppQ, vppManager);
     vpp.start();
     vpp.stop();
 }

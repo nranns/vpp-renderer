@@ -7,21 +7,17 @@
  * and is available at http://www.eclipse.org/legal/epl-v10.html
  */
 
-#include "VppVirtualRouter.h"
+#ifndef __VPP_LOG_H__
+#define __VPP_LOG_H__
 
-namespace VPP
-{
+#include <opflexagent/logging.h>
 
-VirtualRouter::VirtualRouter(const VOM::mac_address_t &mac)
-    : m_mac(mac)
-{
-}
+#define OLOGD LOG(opflexagent::DEBUG)
+#define OLOGW LOG(opflexagent::WARNING)
+#define VLOGI LOG(opflexagent::INFO)
+#define VLOGE LOG(opflexagent::ERROR)
 
-const VOM::mac_address_t &VirtualRouter::mac() const
-{
-    return (m_mac);
-}
-}
+#endif
 
 /*
  * Local Variables:

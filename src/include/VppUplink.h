@@ -7,8 +7,8 @@
  * and is available at http://www.eclipse.org/legal/epl-v10.html
  */
 
-#ifndef OPFLEXAGNET_VPPUPLINK_H__
-#define OPFLEXAGENT_VPPUPLINK_H__
+#ifndef __VPP_UPLINK_H__
+#define __VPP_UPLINK_H__
 
 #include <unordered_set>
 
@@ -21,18 +21,26 @@
 
 using namespace VOM;
 
-namespace VPP {
+namespace VPP
+{
 /**
  * A description of the uplink interface.
  *  Can be one of VLAN< VXLAN or iVXLAN
  */
-class Uplink: public VOM::dhcp_client::event_listener
+class Uplink : public VOM::dhcp_client::event_listener
 {
-public:
+  public:
+    class Listener
+    {
+      public:
+        virtual void handle_uplink_ready() = 0;
+    };
+
     /**
      * The uplink interface's encapsulation type for data traffic.
      */
-    enum uplink_type_t {
+    enum uplink_type_t
+    {
         /**
          * VXLAN encap
          */
@@ -40,36 +48,37 @@ public:
         /**
          * VLAN encap
          */
-        VLAN
+        VLAN,
     };
 
     /**
      * Default Constructor
      */
-    Uplink(opflexagent::TaskQueue &taskQueue);
+    Uplink(opflexagent::TaskQueue &taskQueue, Listener *listener = nullptr);
 
     /**
      * Given the VNID, create aninterface of the appropriate type
      */
-    std::shared_ptr<VOM::interface> mk_interface(const std::string& uuid, uint32_t vnid);
+    std::shared_ptr<VOM::interface> mk_interface(const std::string &uuid,
+                                                 uint32_t vnid);
 
     /**
      * Set the uplink paramenters for vxlan
      */
-    void set(const std::string& uplink, uint16_t vlan, const std::string& name,
-             const boost::asio::ip::address& ip, uint16_t port);
+    void set(const std::string &uplink, uint16_t vlan, const std::string &name,
+             const boost::asio::ip::address &ip, uint16_t port);
 
     /**
      * Set the uplink paramenters for vlan
      */
-    void set(const std::string& uplink, uint16_t vlan, const std::string& name);
+    void set(const std::string &uplink, uint16_t vlan, const std::string &name);
 
     /**
      * make the control channel/interfaces
      *
      * @param fqdn Fully Qualifed Domain name
      */
-    void configure(const std::string& fqdn);
+    void configure(const std::string &fqdn);
 
     /**
      * insert the new slave interface in the slave_ifaces
@@ -81,22 +90,19 @@ public:
      */
     void insert_dhcp_options(std::string name);
 
-private:
+    const boost::asio::ip::address &local_address() const;
+
+  private:
     /**
      * Handle notifications about DHCP complete
      */
-    void handle_dhcp_event(std::shared_ptr<VOM::dhcp_client::lease_t> lease); 
+    void handle_dhcp_event(std::shared_ptr<VOM::dhcp_client::lease_t> lease);
     void handle_dhcp_event_i(std::shared_ptr<VOM::dhcp_client::lease_t> lease);
 
     /**
      * Configure the tap interface
      */
-    void configure_tap(const route::prefix_t& pfx);
-
-    /**
-     * the encap type on the uplinnk
-     */
-    uplink_type_t m_type;
+    void configure_tap(const route::prefix_t &pfx);
 
     /**
      * VXLAN uplink encap, if used
@@ -107,6 +113,11 @@ private:
      * A reference to the uplink physical insterface in the OM
      */
     std::shared_ptr<interface> m_uplink;
+
+    /**
+     * the encap type on the uplinnk
+     */
+    uplink_type_t m_type;
 
     /**
      * The VLAN used for control traffic
@@ -131,7 +142,11 @@ private:
     /**
      * Task queue for events
      */
-    opflexagent::TaskQueue &m_taskQueue;
+    opflexagent::TaskQueue &m_task_queue;
+
+    std::vector<Listener *> m_listeners;
+
+    route::prefix_t m_pfx;
 };
 };
 

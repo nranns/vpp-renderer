@@ -37,13 +37,19 @@ noinst_HEADERS = \
 	src/include/VppManager.h
 
 librenderer_vpp_la_SOURCES = \
-	src/VPPRenderer.cpp \
-        src/VppUplink.cpp \
 	src/VppCrossConnect.cpp \
-        src/VppManager.cpp \
-        src/VppVirtualRouter.cpp \
+	src/VppEndPointGroupManager.cpp \
+	src/VppEndPointManager.cpp \
+        src/VppIdGen.cpp \
+        src/VppInspect.cpp \
         src/VppLogHandler.cpp \
-        src/VppInspect.cpp
+        src/VppManager.cpp \
+	src/VPPRenderer.cpp \
+        src/VppSecurityGroupManager.cpp \
+        src/VppSpineProxy.cpp \
+        src/VppUplink.cpp \
+        src/VppUtil.cpp \
+        src/VppVirtualRouter.cpp
 
 # Link the convenience library into an installable module
 lib_LTLIBRARIES = libopflex_agent_renderer_vpp.la
@@ -58,6 +64,11 @@ pluginconfdir=$(sysconfdir)/opflex-agent-ovs/plugins.conf.d
 pluginconf_DATA = plugin-renderer-vpp.conf
 
 plugin-renderer-vpp.conf: $(top_srcdir)/plugin-renderer-vpp.conf.in
+
+fixstyle:
+	clang-format -i src/*.cpp
+	clang-format -i src/include/*.h
+	clang-format -i src/include/*.hpp
 
 # Create a unit test driver that links to the plugin convenience
 # library

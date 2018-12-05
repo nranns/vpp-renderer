@@ -1,0 +1,26 @@
+/* -*- C++ -*-; c-basic-offset: 4; indent-tabs-mode: nil */
+/*
+ * Copyright (c) 2017-2018 Cisco Systems, Inc. and others.  All rights reserved.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License v1.0 which accompanies this distribution,
+ * and is available at http://www.eclipse.org/legal/epl-v10.html
+ */
+
+#include "VppSpineProxy.hpp"
+
+namespace VPP
+{
+SpineProxy::SpineProxy(const boost::asio::ip::address_v4 &local,
+                       const boost::asio::ip::address_v4 &remote_v4,
+                       const boost::asio::ip::address_v4 &remote_v6,
+                       const boost::asio::ip::address_v4 &remote_mac)
+{
+}
+};
+
+/*
+ * Local Variables:
+ * eval: (c-set-style "llvm.org")
+ * End:
+ */
