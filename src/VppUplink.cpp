@@ -143,8 +143,8 @@ Uplink::spine_proxy(uint16_t vnid)
         boost::asio::ip::address_v4 v4, v6, mac;
 
         m_agent.getV4Proxy(v4);
-        m_agent.getV4Proxy(v6);
-        m_agent.getV4Proxy(mac);
+        m_agent.getV6Proxy(v6);
+        m_agent.getMacProxy(mac);
 
         return std::make_shared<SpineProxy>(
             local_address().to_v4(), v4, v6, mac, vnid);

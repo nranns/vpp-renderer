@@ -25,6 +25,7 @@ SpineProxy::SpineProxy(const boost::asio::ip::address_v4 &local,
     , m_remote_v4(remote_v4)
     , m_remote_v6(remote_v6)
     , m_remote_mac(remote_mac)
+    , m_vnid(vnid)
 {
 }
 

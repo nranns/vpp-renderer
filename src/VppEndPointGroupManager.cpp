@@ -183,8 +183,11 @@ EndPointGroupManager::mk_group(const std::string &key,
             }
             OM::write(key, l2_upl);
 
+            gbp_bridge_domain gbd(bd, bvi);
+            OM::write(key, gbd);
+
             gepg = std::make_shared<gbp_endpoint_group>(
-                fwd.vnid, *encap_link, rd, bd);
+                fwd.vnid, *encap_link, rd, gbd);
         }
         /*
          * GBP Endpoint Group

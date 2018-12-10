@@ -1378,8 +1378,8 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
     /*
      * Check for a bridge domain 100
      */
-    bridge_domain v_bd_epg0(100, bridge_domain::learning_mode_t::OFF);
-    WAIT_FOR_MATCH(v_bd_epg0);
+    bridge_domain v_bd(100, bridge_domain::learning_mode_t::OFF);
+    WAIT_FOR_MATCH(v_bd);
 
     /*
      * check for the presence of a VOM route-domain matching the EPG's
@@ -1388,19 +1388,55 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
     route_domain v_rd(100);
     WAIT_FOR_MATCH(v_rd);
 
-    interface *v_bvi_epg0 = new interface(
-        "bvi-100", interface::type_t::BVI, interface::admin_state_t::UP, v_rd);
-    v_bvi_epg0->set(vMac);
+    interface *v_bvi = new interface("bvi-100",
+                                     interface::type_t::BVI,
+                                     interface::admin_state_t::UP,
+                                     v_rd);
+    v_bvi->set(vMac);
 
-    WAIT_FOR_MATCH(*v_bvi_epg0);
-
-    inspector.handle_input("all", std::cout);
+    WAIT_FOR_MATCH(*v_bvi);
 
     /*
      * the interfaces to the spine proxy.
      */
-    vxlan_tunnel vt_mac(host, spine_mac, 0xA0A, vxlan_tunnel::mode_t::GBP);
-    WAIT_FOR_MATCH(vt_mac);
+    vxlan_tunnel *vt_mac = new vxlan_tunnel(host, spine_mac, 0xA0A,
+                                            vxlan_tunnel::mode_t::GBP);
+    WAIT_FOR_MATCH(*vt_mac);
+    vxlan_tunnel *vt_v4 = new vxlan_tunnel(host, spine_v4, 0xA0A,
+                                           vxlan_tunnel::mode_t::GBP);
+    WAIT_FOR_MATCH(*vt_v4);
+    vxlan_tunnel *vt_v6 = new vxlan_tunnel(host, spine_v6, 0xA0A,
+                                           vxlan_tunnel::mode_t::GBP);
+    WAIT_FOR_MATCH(*vt_v6);
+
+    gbp_bridge_domain *v_gbd = new gbp_bridge_domain(v_bd, *v_bvi, *vt_mac);
+    WAIT_FOR_MATCH(*v_gbd);
+    gbp_route_domain *v_grd = new gbp_route_domain(v_rd, *vt_v4, *vt_v6);
+    WAIT_FOR_MATCH(*v_grd);
+
+    gbp_endpoint_group *v_epg =
+        new gbp_endpoint_group(0xA0A, *v_grd, *v_gbd);
+    WAIT_FOR_MATCH(*v_epg);
+
+    removeEpg(epg0);
+    vppManager.egDomainUpdated(epg0->getURI());
+
+    WAIT_FOR_NOT_PRESENT(*v_epg);
+    delete v_epg;
+
+    WAIT_FOR_NOT_PRESENT(*v_gbd);
+    WAIT_FOR_NOT_PRESENT(*v_grd);
+    delete v_gbd;
+    delete v_grd;
+
+    WAIT_FOR_NOT_PRESENT(*v_bvi);
+    WAIT_FOR_NOT_PRESENT(*vt_mac);
+    WAIT_FOR_NOT_PRESENT(*vt_v4);
+    WAIT_FOR_NOT_PRESENT(*vt_v6);
+    delete vt_mac;
+    delete vt_v4;
+    delete vt_v6;
+    delete v_bvi;
 }
 
 BOOST_AUTO_TEST_SUITE_END()
