@@ -33,6 +33,7 @@
 #include <vom/route.hpp>
 #include <vom/route_domain.hpp>
 #include <vom/sub_interface.hpp>
+#include <vom/stat_reader.hpp>
 
 #include "VppEndPointGroupManager.hpp"
 #include "VppEndPointManager.hpp"
@@ -232,99 +233,72 @@ get_ep_ips(const opflexagent::Endpoint &ep)
 }
 
 void
-EndPointManager::handle_interface_stat_i(interface_cmds::stats_enable_cmd *e)
+EndPointManager::handle_interface_stat_i(const interface& itf)
 {
-    VLOGD << "Interface Stat: " << *e;
+    VLOGD << "Interface Stat: " << itf.to_string();
 
     opflexagent::EndpointManager &epMgr = m_agent.getEndpointManager();
-    std::lock_guard<VOM::interface_cmds::stats_enable_cmd> lg(*e);
 
-    for (auto &msg : *e)
+    opflexagent::EndpointManager::EpCounters counters;
+    std::unordered_set<std::string> endpoints;
+    auto &data = itf.get_stats();
+
+    VLOGD << "Stats data: " << data;
+
+    epMgr.getEndpointsByAccessIface(itf.name(), endpoints);
+
+    memset(&counters, 0, sizeof(counters));
+    counters.txPackets = data.m_tx.packets;
+    counters.rxPackets = data.m_rx.packets;
+    counters.txBytes = data.m_tx.bytes;
+    counters.rxBytes = data.m_rx.bytes;
+    counters.rxUnicast = data.m_rx_unicast.packets;
+    counters.txUnicast = data.m_tx_unicast.packets;
+    counters.rxBroadcast = data.m_rx_broadcast.packets;
+    counters.txBroadcast = data.m_tx_broadcast.packets;
+    counters.rxMulticast = data.m_rx_multicast.packets;
+    counters.txMulticast = data.m_tx_multicast.packets;
+    // counters.txDrop = data.tx_dropped;
+    // counters.rxDrop = data.rx_dropped;
+
+    for (const std::string &uuid : endpoints)
     {
-        auto &payload = msg.get_payload();
-
-        for (int i = 0; i < payload.count; i++)
-        {
-            opflexagent::EndpointManager::EpCounters counters;
-            std::unordered_set<std::string> endpoints;
-            auto &data = payload.data[i];
-
-            VOM::handle_t handle(data.sw_if_index);
-            std::shared_ptr<VOM::interface> sp = interface::find(handle);
-            if (!sp) return;
-
-            VLOGD << "Interface Stat: " << sp->to_string()
-                  << " stat rx_packets: " << data.rx_packets
-                  << " stat rx_bytes: " << data.rx_bytes
-                  << " stat rx_unicast_packets: " << data.rx_unicast_packets
-                  << " stat rx_multicast_packets: " << data.rx_multicast_packets
-                  << " stat rx_broadcast_packets: " << data.rx_broadcast_packets
-                  << " stat tx_packets: " << data.tx_packets
-                  << " stat tx_bytes: " << data.tx_bytes
-                  << " stat tx_unicast_packets: " << data.tx_unicast_packets
-                  << " stat tx_multicast_packets: " << data.tx_multicast_packets
-                  << " stat tx_broadcast_packets: "
-                  << data.tx_broadcast_packets;
-
-            epMgr.getEndpointsByAccessIface(sp->name(), endpoints);
-
-            memset(&counters, 0, sizeof(counters));
-            counters.txPackets = data.tx_packets;
-            counters.rxPackets = data.rx_packets;
-            counters.txBytes = data.tx_bytes;
-            counters.rxBytes = data.rx_bytes;
-            counters.rxUnicast = data.rx_unicast_packets;
-            counters.txUnicast = data.tx_unicast_packets;
-            counters.rxBroadcast = data.rx_broadcast_packets;
-            counters.txBroadcast = data.tx_broadcast_packets;
-            counters.rxMulticast = data.rx_multicast_packets;
-            counters.txMulticast = data.tx_multicast_packets;
-            // counters.txDrop = data.tx_dropped;
-            // counters.rxDrop = data.rx_dropped;
-
-            for (const std::string &uuid : endpoints)
-            {
-                if (counters.rxDrop == std::numeric_limits<uint64_t>::max())
-                    counters.rxDrop = 0;
-                if (counters.txDrop == std::numeric_limits<uint64_t>::max())
-                    counters.txDrop = 0;
-                if (counters.txPackets == std::numeric_limits<uint64_t>::max())
-                    counters.txPackets = 0;
-                if (counters.rxPackets == std::numeric_limits<uint64_t>::max())
-                    counters.rxPackets = 0;
-                if (counters.txBroadcast ==
-                    std::numeric_limits<uint64_t>::max())
-                    counters.txBroadcast = 0;
-                if (counters.rxBroadcast ==
-                    std::numeric_limits<uint64_t>::max())
-                    counters.rxBroadcast = 0;
-                if (counters.txMulticast ==
-                    std::numeric_limits<uint64_t>::max())
-                    counters.txMulticast = 0;
-                if (counters.rxMulticast ==
-                    std::numeric_limits<uint64_t>::max())
-                    counters.rxMulticast = 0;
-                if (counters.txUnicast == std::numeric_limits<uint64_t>::max())
-                    counters.txUnicast = 0;
-                if (counters.rxUnicast == std::numeric_limits<uint64_t>::max())
-                    counters.rxUnicast = 0;
-                if (counters.rxBytes == std::numeric_limits<uint64_t>::max())
-                    counters.rxBytes = 0;
-                if (counters.txBytes == std::numeric_limits<uint64_t>::max())
-                    counters.txBytes = 0;
-                epMgr.updateEndpointCounters(uuid, counters);
-            }
-        }
+        if (counters.rxDrop == std::numeric_limits<uint64_t>::max())
+            counters.rxDrop = 0;
+        if (counters.txDrop == std::numeric_limits<uint64_t>::max())
+            counters.txDrop = 0;
+        if (counters.txPackets == std::numeric_limits<uint64_t>::max())
+            counters.txPackets = 0;
+        if (counters.rxPackets == std::numeric_limits<uint64_t>::max())
+            counters.rxPackets = 0;
+        if (counters.txBroadcast ==
+            std::numeric_limits<uint64_t>::max())
+            counters.txBroadcast = 0;
+        if (counters.rxBroadcast ==
+            std::numeric_limits<uint64_t>::max())
+            counters.rxBroadcast = 0;
+        if (counters.txMulticast ==
+            std::numeric_limits<uint64_t>::max())
+            counters.txMulticast = 0;
+        if (counters.rxMulticast ==
+            std::numeric_limits<uint64_t>::max())
+            counters.rxMulticast = 0;
+        if (counters.txUnicast == std::numeric_limits<uint64_t>::max())
+            counters.txUnicast = 0;
+        if (counters.rxUnicast == std::numeric_limits<uint64_t>::max())
+            counters.rxUnicast = 0;
+        if (counters.rxBytes == std::numeric_limits<uint64_t>::max())
+            counters.rxBytes = 0;
+        if (counters.txBytes == std::numeric_limits<uint64_t>::max())
+            counters.txBytes = 0;
+        epMgr.updateEndpointCounters(uuid, counters);
     }
-
-    e->flush();
 }
 
 void
-EndPointManager::handle_interface_stat(interface_cmds::stats_enable_cmd *e)
+EndPointManager::handle_interface_stat(const interface& itf)
 {
-    m_agent.getAgentIOService().dispatch(
-        std::bind(&EndPointManager::handle_interface_stat_i, this, e));
+    handle_interface_stat_i(itf);
 }
 
 void
@@ -398,7 +372,7 @@ EndPointManager::handle_update(const std::string &uuid)
             /**
              * We are interested in getting detailed interface stats from VPP
              */
-            itf->enable_stats(*this, interface::stats_type_t::DETAILED);
+            itf->enable_stats(this);
 
             /*
              * Apply Security Groups

@@ -134,6 +134,14 @@ VppManager::handleInitConnection()
         new boost::asio::deadline_timer(agent.getAgentIOService()));
     m_poll_timer->expires_from_now(boost::posix_time::seconds(3));
     m_poll_timer->async_wait(bind(&VppManager::handleHWPollTimer, this, error));
+
+    /**
+     * Scehdule a timer for HW stats
+     */
+    m_stats_timer.reset(
+        new boost::asio::deadline_timer(agent.getAgentIOService()));
+    m_stats_timer->expires_from_now(boost::posix_time::seconds(3));
+    m_stats_timer->async_wait(bind(&VppManager::handleHWStatsTimer, this, error));
 }
 
 void
@@ -217,6 +225,22 @@ VppManager::handleHWPollTimer(const boost::system::error_code &ec)
 }
 
 void
+VppManager::handleHWStatsTimer(const boost::system::error_code &ec)
+{
+    if (stopping || ec) return;
+
+    VLOGI << "stats reading";
+
+    VOM::HW::read_stats();
+   
+    m_stats_timer.reset(
+          new boost::asio::deadline_timer(agent.getAgentIOService()));
+    m_stats_timer->expires_from_now(boost::posix_time::seconds(3));
+    m_stats_timer->async_wait(
+         bind(&VppManager::handleHWStatsTimer, this, error));
+}
+
+void
 VppManager::handleBoot()
 {
     if (stopping) return;
@@ -246,6 +270,11 @@ VppManager::stop()
     agent.getServiceManager().unregisterListener(this);
     agent.getExtraConfigManager().unregisterListener(this);
     agent.getPolicyManager().unregisterListener(this);
+
+    if (m_stats_timer)
+    {   
+        m_stats_timer->cancel();
+    }
 
     if (m_sweep_timer)
     {

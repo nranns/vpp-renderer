@@ -197,11 +197,6 @@ class VppManager : public opflexagent::EndpointListener,
     void handleInterfaceEvent(std::vector<VOM::interface::event> e);
 
     /**
-     * Handle interface stats in the task-queue context
-     */
-    void handleInterfaceStat(VOM::interface_cmds::stats_enable_cmd *e);
-
-    /**
      * Handle the connect request to VPP
      */
     void handleInitConnection();
@@ -235,6 +230,11 @@ class VppManager : public opflexagent::EndpointListener,
      * Handle the HW poll timeout
      */
     void handleHWPollTimer(const boost::system::error_code &ec);
+
+    /**
+     * Pull the HW stats
+     */
+    void handleHWStatsTimer(const boost::system::error_code &ec);
 
     /**
      * Referene to the uber-agent
@@ -276,6 +276,11 @@ class VppManager : public opflexagent::EndpointListener,
      * The HW poll timer
      */
     std::unique_ptr<boost::asio::deadline_timer> m_poll_timer;
+
+    /**
+     * The HW stats timer
+     */
+    std::unique_ptr<boost::asio::deadline_timer> m_stats_timer;
 
     /**
      * indicator this manager is stopping

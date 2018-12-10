@@ -11,8 +11,6 @@
 
 #include "opflexagent/Agent.h"
 
-#include <vom/interface_cmds.hpp>
-
 #include "VppIdGen.hpp"
 #include "VppUplink.hpp"
 #include "VppVirtualRouter.hpp"
@@ -21,6 +19,7 @@ namespace VOM
 {
 class bridge_domain;
 class route_domain;
+class interface;
 };
 
 namespace VPP
@@ -43,13 +42,13 @@ class EndPointManager : public VOM::interface::stat_listener
     static std::string get_ep_interface_name(
         const opflexagent::Endpoint &ep) throw(NoEpInterfaceException);
 
+    virtual void
+        handle_interface_stat(const interface&);
   private:
     /**
      * Event listener override to get Interface stats
      */
-    void handle_interface_stat_i(VOM::interface_cmds::stats_enable_cmd *e);
-    virtual void
-    handle_interface_stat(VOM::interface_cmds::stats_enable_cmd *e);
+    void handle_interface_stat_i(const interface&);
 
     static std::shared_ptr<interface>
     mk_bd_interface(const opflexagent::Endpoint &ep,
@@ -60,7 +59,6 @@ class EndPointManager : public VOM::interface::stat_listener
      * Referene to the uber-agent
      */
     opflexagent::Agent &m_agent;
-
     IdGen &m_id_gen;
     Uplink &m_uplink;
     std::shared_ptr<VirtualRouter> m_vr;
