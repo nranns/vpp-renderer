@@ -47,6 +47,7 @@
 using namespace VOM;
 using namespace opflexagent;
 using boost::asio::ip::address;
+using boost::asio::ip::address_v4;
 
 BOOST_AUTO_TEST_SUITE(VppManager_test)
 
@@ -213,8 +214,12 @@ print_obj(const T &obj, const std::string &s)
 class VppManagerFixture : public ModbFixture
 {
   public:
-    VppManagerFixture()
-        : vMac{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+    typedef opflex::ofcore::OFConstants::OpflexElementMode opflex_elem_t;
+
+  public:
+    VppManagerFixture(opflex_elem_t mode = opflex_elem_t::INVALID_MODE)
+        : ModbFixture(mode)
+        , vMac{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
         , policyMgr(agent.getPolicyManager())
         , vppQ()
         , vppManager(agent, idGen, &vppQ)
@@ -229,7 +234,6 @@ class VppManagerFixture : public ModbFixture
 
         vppManager.uplink().set("opflex-itf", 4093, "opflex-host");
         vppManager.setVirtualRouter(true, true, vMac.to_string());
-        vppManager.start();
     }
 
     virtual ~VppManagerFixture()
@@ -479,7 +483,32 @@ class VppManagerFixture : public ModbFixture
     inspect inspector;
 };
 
-BOOST_FIXTURE_TEST_CASE(start, VppManagerFixture)
+class VppStitchedManagerFixture : public VppManagerFixture
+{
+  public:
+    VppStitchedManagerFixture()
+    {
+        vppManager.start();
+    }
+    ~VppStitchedManagerFixture()
+    {
+    }
+};
+
+class VppTransportManagerFixture : public VppManagerFixture
+{
+  public:
+    VppTransportManagerFixture()
+        : VppManagerFixture(opflex_elem_t::TRANSPORT_MODE)
+    {
+        vppManager.start();
+    }
+    ~VppTransportManagerFixture()
+    {
+    }
+};
+
+BOOST_FIXTURE_TEST_CASE(start, VppStitchedManagerFixture)
 {
     /*
      * Validate the presence of the uplink state built at startup/boot
@@ -502,7 +531,7 @@ BOOST_FIXTURE_TEST_CASE(start, VppManagerFixture)
     WAIT_FOR_MATCH(lldp_binding(v_phy, "uplink-interface"));
 }
 
-BOOST_FIXTURE_TEST_CASE(endpoint_group_add_del, VppManagerFixture)
+BOOST_FIXTURE_TEST_CASE(endpoint_group_add_del, VppStitchedManagerFixture)
 {
     vppManager.egDomainUpdated(epg0->getURI());
     // vppManager.domainUpdated(modelgbp::gbp::RoutingDomain::CLASS_ID,
@@ -535,7 +564,6 @@ BOOST_FIXTURE_TEST_CASE(endpoint_group_add_del, VppManagerFixture)
         "bvi-100", interface::type_t::BVI, interface::admin_state_t::UP, v_rd);
     v_bvi_epg0->set(vMac);
 
-    inspector.handle_input("intf", std::cout);
     WAIT_FOR_MATCH(*v_bvi_epg0);
 
     /*
@@ -718,7 +746,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_group_add_del, VppManagerFixture)
     WAIT_FOR_NOT_PRESENT(v_rd);
 }
 
-BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppManagerFixture)
+BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppStitchedManagerFixture)
 {
     assignEpg0ToFd0();
     vppManager.egDomainUpdated(epg0->getURI());
@@ -887,7 +915,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppManagerFixture)
     WAIT_FOR_NOT_PRESENT(v_rd);
 }
 
-BOOST_FIXTURE_TEST_CASE(endpoint_nat_add_del, VppManagerFixture)
+BOOST_FIXTURE_TEST_CASE(endpoint_nat_add_del, VppStitchedManagerFixture)
 {
     createNatObjects();
     assignEpg0ToFd0();
@@ -1123,7 +1151,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_nat_add_del, VppManagerFixture)
         nat_static(v_rd, address::from_string("10.20.44.2"), a5_5_5_5));
 }
 
-BOOST_FIXTURE_TEST_CASE(secGroup, VppManagerFixture)
+BOOST_FIXTURE_TEST_CASE(secGroup, VppStitchedManagerFixture)
 {
     using modelgbp::gbpe::L24Classifier;
     using namespace modelgbp::gbp;
@@ -1298,6 +1326,81 @@ BOOST_FIXTURE_TEST_CASE(secGroup, VppManagerFixture)
                               "PolicySpace/tenant0/GbpSecGroup/secgrp2/in",
                               rules2)));
     delete v_itf;
+}
+
+BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
+                        VppTransportManagerFixture)
+{
+    address_v4 spine_mac, spine_v4, spine_v6;
+    address host, router;
+
+    host = boost::asio::ip::address::from_string("192.168.1.1");
+    router = boost::asio::ip::address::from_string("192.168.1.2");
+
+    route::prefix_t pfx(host, 24);
+    mac_address_t mac("00:00:11:22:33:44");
+
+    framework.getMacProxy(spine_mac);
+    framework.getV4Proxy(spine_v4);
+    framework.getV6Proxy(spine_v6);
+
+    /*
+     * boot phase so the VPP/host address is learnt
+     */
+    interface v_phy("opflex-itf",
+                    interface::type_t::AFPACKET,
+                    interface::admin_state_t::UP);
+    sub_interface v_sub(v_phy, interface::admin_state_t::UP, 4093);
+
+    WAIT_FOR_MATCH(v_phy);
+    WAIT_FOR_MATCH(v_sub);
+
+    std::string fqdn = boost::asio::ip::host_name();
+    WAIT_FOR_MATCH(dhcp_client(v_sub, fqdn));
+    WAIT_FOR_MATCH(lldp_global(fqdn, 5, 2));
+    WAIT_FOR_MATCH(lldp_binding(v_phy, "uplink-interface"));
+
+    std::shared_ptr<dhcp_client::lease_t> lease =
+        std::make_shared<dhcp_client::lease_t>(dhcp_client::state_t::BOUND,
+                                               v_sub.singular(),
+                                               router,
+                                               pfx,
+                                               boost::asio::ip::host_name(),
+                                               mac);
+
+    vppManager.uplink().handle_dhcp_event(lease);
+
+    /*
+     * create an endpoint group
+     */
+    vppManager.egDomainUpdated(epg0->getURI());
+
+    /*
+     * Check for a bridge domain 100
+     */
+    bridge_domain v_bd_epg0(100, bridge_domain::learning_mode_t::OFF);
+    WAIT_FOR_MATCH(v_bd_epg0);
+
+    /*
+     * check for the presence of a VOM route-domain matching the EPG's
+     * ID's are offset by 100.
+     */
+    route_domain v_rd(100);
+    WAIT_FOR_MATCH(v_rd);
+
+    interface *v_bvi_epg0 = new interface(
+        "bvi-100", interface::type_t::BVI, interface::admin_state_t::UP, v_rd);
+    v_bvi_epg0->set(vMac);
+
+    WAIT_FOR_MATCH(*v_bvi_epg0);
+
+    inspector.handle_input("all", std::cout);
+
+    /*
+     * the interfaces to the spine proxy.
+     */
+    vxlan_tunnel vt_mac(host, spine_mac, 0xA0A, vxlan_tunnel::mode_t::GBP);
+    WAIT_FOR_MATCH(vt_mac);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

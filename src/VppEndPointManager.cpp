@@ -374,6 +374,9 @@ EndPointManager::handle_update(const std::string &uuid)
         bridge_domain bd(fwd.bdId, bridge_domain::learning_mode_t::OFF);
         OM::write(uuid, bd);
 
+        std::shared_ptr<SpineProxy> spine_proxy =
+            m_uplink.spine_proxy(fwd.vnid);
+
         /*
          * VOM GBP Endpoint Group
          */

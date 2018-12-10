@@ -21,7 +21,9 @@
 #include "vom/lldp_global.hpp"
 #include "vom/neighbour.hpp"
 #include "vom/sub_interface.hpp"
+#include <vom/bond_group_binding.hpp>
 
+#include "VppSpineProxy.hpp"
 #include "VppUplink.hpp"
 #include "VppUtil.hpp"
 
@@ -32,12 +34,10 @@ namespace VPP
 
 static const std::string UPLINK_KEY = "__uplink__";
 
-Uplink::Uplink(opflexagent::TaskQueue &taskQueue, Listener *listener)
+Uplink::Uplink(opflexagent::Agent &agent)
     : m_type(VLAN)
-    , m_task_queue(taskQueue)
-    , m_listeners()
+    , m_agent(agent)
 {
-    if (listener) m_listeners.push_back(listener);
 }
 
 std::shared_ptr<VOM::interface>
@@ -108,8 +108,8 @@ Uplink::configure_tap(const route::prefix_t &pfx)
 void
 Uplink::handle_dhcp_event(std::shared_ptr<VOM::dhcp_client::lease_t> lease)
 {
-    m_task_queue.dispatch("dhcp-config-event",
-                          bind(&Uplink::handle_dhcp_event_i, this, lease));
+    m_agent.getAgentIOService().dispatch(
+        bind(&Uplink::handle_dhcp_event_i, this, lease));
 }
 
 void
@@ -129,11 +129,29 @@ Uplink::handle_dhcp_event_i(std::shared_ptr<dhcp_client::lease_t> lease)
      * VXLAN tunnels use the DHCP address as the source
      */
     m_vxlan.src = m_pfx.address();
+}
 
-    for (auto l : m_listeners)
+std::shared_ptr<SpineProxy>
+Uplink::spine_proxy(uint16_t vnid)
+{
+    switch (m_agent.getRendererForwardingMode())
     {
-        l->handle_uplink_ready();
+    case opflex::ofcore::OFConstants::STITCHED_MODE:
+        break;
+    case opflex::ofcore::OFConstants::TRANSPORT_MODE:
+    {
+        boost::asio::ip::address_v4 v4, v6, mac;
+
+        m_agent.getV4Proxy(v4);
+        m_agent.getV4Proxy(v6);
+        m_agent.getV4Proxy(mac);
+
+        return std::make_shared<SpineProxy>(
+            local_address().to_v4(), v4, v6, mac, vnid);
+        break;
     }
+    }
+    return {};
 }
 
 const boost::asio::ip::address &

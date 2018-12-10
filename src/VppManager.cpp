@@ -43,7 +43,7 @@ VppManager::VppManager(opflexagent::Agent &agent_,
     : agent(agent_)
     , m_id_gen(idGen_)
     , m_task_queue(agent.getAgentIOService())
-    , m_uplink(m_task_queue)
+    , m_uplink(agent)
     , stopping(false)
 {
     VOM::HW::init(q);
@@ -377,29 +377,6 @@ void
 VppManager::peerStatusUpdated(const std::string &, int, PeerStatus peerStatus)
 {
     if (stopping) return;
-}
-
-void
-VppManager::handle_uplink_ready()
-{
-    VLOGI << "Uplink Ready ";
-    switch (agent.getRendererForwardingMode())
-    {
-    case opflex::ofcore::OFConstants::STITCHED_MODE:
-        break;
-    case opflex::ofcore::OFConstants::TRANSPORT_MODE:
-    {
-        boost::asio::ip::address_v4 v4, v6, mac;
-
-        agent.getV4Proxy(v4);
-        agent.getV4Proxy(v6);
-        agent.getV4Proxy(mac);
-
-        m_spine_proxy = std::make_shared<SpineProxy>(
-            m_uplink.local_address().to_v4(), v4, v6, mac);
-        break;
-    }
-    }
 }
 
 void

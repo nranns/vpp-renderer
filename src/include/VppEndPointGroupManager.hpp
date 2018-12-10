@@ -15,6 +15,11 @@
 #include "VppUplink.hpp"
 #include "VppVirtualRouter.hpp"
 
+namespace VOM
+{
+class gbp_endpoint_group;
+};
+
 namespace VPP
 {
 class EndPointGroupManager
@@ -43,6 +48,9 @@ class EndPointGroupManager
                  const opflex::modb::URI &uri) throw(NoFowardInfoException);
 
     void handle_update(const opflex::modb::URI &epgURI);
+
+    std::shared_ptr<VOM::gbp_endpoint_group>
+    mk_group(const std::string &key, const opflex::modb::URI &uri);
 
   private:
     /**
