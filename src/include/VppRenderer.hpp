@@ -42,7 +42,6 @@ class VppRenderer : public opflexagent::Renderer
      */
     VppRenderer(opflexagent::Agent &agent,
                 IdGenerator &idGen,
-                VOM::HW::cmd_q *vppQ,
                 VppManager *vppManager);
 
     /**
@@ -68,11 +67,6 @@ class VppRenderer : public opflexagent::Renderer
      * ID generator
      */
     IdGenerator &idGen;
-
-    /**
-     * HW cmd_q
-     */
-    VOM::HW::cmd_q *vppQ;
 
     /**
      * Single instance of the VPP manager

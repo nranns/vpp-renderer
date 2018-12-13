@@ -87,11 +87,10 @@ Uplink::configure_tap(const route::prefix_t &pfx)
      * of the configured prefix in the OM, we'll sweep it from the
      * interface if we restart
      */
-    sub_interface subitf(*m_uplink, interface::admin_state_t::UP, m_vlan);
-    l3_binding l3(subitf, pfx);
+    l3_binding l3(*m_subitf, pfx);
     OM::commit(UPLINK_KEY, l3);
 
-    ip_unnumbered ipUnnumber(itf, subitf);
+    ip_unnumbered ipUnnumber(itf, *m_subitf);
     VOM::OM::write(UPLINK_KEY, ipUnnumber);
 
     arp_proxy_config arpProxyConfig(pfx.low().address().to_v4(),
@@ -101,7 +100,7 @@ Uplink::configure_tap(const route::prefix_t &pfx)
     arp_proxy_binding arpProxyBinding(itf);
     VOM::OM::write(UPLINK_KEY, arpProxyBinding);
 
-    ip_punt_redirect ipPunt(subitf, itf, pfx.address());
+    ip_punt_redirect ipPunt(*m_subitf, itf, pfx.address());
     VOM::OM::write(UPLINK_KEY, ipPunt);
 }
 
@@ -158,6 +157,12 @@ const boost::asio::ip::address &
 Uplink::local_address() const
 {
     return m_pfx.address();
+}
+
+const std::shared_ptr<interface>
+Uplink::local_interface() const
+{
+    return m_subitf;
 }
 
 void
@@ -222,6 +227,7 @@ Uplink::configure(const std::string &fqdn)
      */
     sub_interface subitf(*m_uplink, interface::admin_state_t::UP, m_vlan);
     OM::write(UPLINK_KEY, subitf);
+    m_subitf = subitf.singular();
 
     /**
      * Strip the fully qualified domain name of any domain name

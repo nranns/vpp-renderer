@@ -12,27 +12,22 @@
 
 #include <opflexagent/Agent.h>
 
-#include "VppIdGen.hpp"
-#include "VppUplink.hpp"
+#include "VppRuntime.hpp"
 
 namespace VPP
 {
 class RouteDomainManager
 {
   public:
-    RouteDomainManager(opflexagent::Agent &agent,
-                       IdGen &id_gen,
-                       Uplink &uplink);
+    RouteDomainManager(Runtime &runtime);
 
     void handle_update(const opflex::modb::URI &uri);
 
   private:
     /**
-     * Referene to the uber-agent
+     * Referene to the runtime data
      */
-    opflexagent::Agent &m_agent;
-    IdGen &m_id_gen;
-    Uplink &m_uplink;
+    Runtime &m_runtime;
 };
 }; // namespace VPP
 

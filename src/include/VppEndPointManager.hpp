@@ -11,9 +11,7 @@
 
 #include "opflexagent/Agent.h"
 
-#include "VppIdGen.hpp"
-#include "VppUplink.hpp"
-#include "VppVirtualRouter.hpp"
+#include "VppRuntime.hpp"
 
 namespace VOM
 {
@@ -31,10 +29,7 @@ class EndPointManager : public VOM::interface::stat_listener
     {
     };
 
-    EndPointManager(opflexagent::Agent &agent,
-                    IdGen &id_gen,
-                    Uplink &uplink,
-                    std::shared_ptr<VirtualRouter> vr);
+    EndPointManager(Runtime &runtime);
     virtual ~EndPointManager();
 
     void handle_update(const std::string &uuid);
@@ -42,26 +37,23 @@ class EndPointManager : public VOM::interface::stat_listener
     static std::string get_ep_interface_name(
         const opflexagent::Endpoint &ep) throw(NoEpInterfaceException);
 
-    virtual void
-        handle_interface_stat(const interface&);
+    virtual void handle_interface_stat(const interface &);
+
   private:
     /**
      * Event listener override to get Interface stats
      */
-    void handle_interface_stat_i(const interface&);
+    void handle_interface_stat_i(const interface &);
 
-    static std::shared_ptr<interface>
-    mk_bd_interface(const opflexagent::Endpoint &ep,
-                    const bridge_domain &bd,
-                    const route_domain &rd) throw(NoEpInterfaceException);
+    static std::shared_ptr<interface> mk_bd_interface(
+        const opflexagent::Endpoint &ep,
+        const std::shared_ptr<bridge_domain> bd,
+        const std::shared_ptr<route_domain> rd) throw(NoEpInterfaceException);
 
     /**
-     * Referene to the uber-agent
+     * Referene to runtime data.
      */
-    opflexagent::Agent &m_agent;
-    IdGen &m_id_gen;
-    Uplink &m_uplink;
-    std::shared_ptr<VirtualRouter> m_vr;
+    Runtime &m_runtime;
 };
 
 }; // namespace VPP

@@ -39,34 +39,31 @@ static const std::string BOOT_KEY = "__boot__";
 
 VppManager::VppManager(opflexagent::Agent &agent_,
                        opflexagent::IdGenerator &idGen_,
-                       VOM::HW::cmd_q *q)
-    : agent(agent_)
-    , m_id_gen(idGen_)
-    , m_task_queue(agent.getAgentIOService())
-    , m_uplink(agent)
+                       VOM::HW::cmd_q *q,
+                       VOM::stat_reader *sr)
+    : m_runtime(agent_, idGen_)
+    , m_task_queue(agent_.getAgentIOService())
     , stopping(false)
 {
-    VOM::HW::init(q);
+    VOM::HW::init(q, sr);
     VOM::OM::init();
 
-    agent.getFramework().registerPeerStatusListener(this);
+    m_runtime.agent.getFramework().registerPeerStatusListener(this);
 }
 
 void
 VppManager::start()
 {
-    VLOGI << "start vpp manager: mode: "
-          << (int)agent.getRendererForwardingMode();
+    VLOGI << "start vpp manager";
 
     /*
      * create the update delegators
      */
-    m_epm = std::make_shared<EndPointManager>(agent, m_id_gen, m_uplink, m_vr);
-    m_epgm =
-        std::make_shared<EndPointGroupManager>(agent, m_id_gen, m_uplink, m_vr);
-    m_sgm = std::make_shared<SecurityGroupManager>(agent);
-    m_cm = std::make_shared<ContractManager>(agent, m_id_gen);
-    m_rdm = std::make_shared<RouteDomainManager>(agent, m_id_gen, m_uplink);
+    m_epm = std::make_shared<EndPointManager>(m_runtime);
+    m_epgm = std::make_shared<EndPointGroupManager>(m_runtime);
+    m_sgm = std::make_shared<SecurityGroupManager>(m_runtime.agent);
+    m_cm = std::make_shared<ContractManager>(m_runtime.agent, m_runtime.id_gen);
+    m_rdm = std::make_shared<RouteDomainManager>(m_runtime);
 
     initPlatformConfig();
 
@@ -131,7 +128,7 @@ VppManager::handleInitConnection()
      * Scehdule a timer to Poll for HW livensss
      */
     m_poll_timer.reset(
-        new boost::asio::deadline_timer(agent.getAgentIOService()));
+        new boost::asio::deadline_timer(m_runtime.agent.getAgentIOService()));
     m_poll_timer->expires_from_now(boost::posix_time::seconds(3));
     m_poll_timer->async_wait(bind(&VppManager::handleHWPollTimer, this, error));
 
@@ -139,9 +136,10 @@ VppManager::handleInitConnection()
      * Scehdule a timer for HW stats
      */
     m_stats_timer.reset(
-        new boost::asio::deadline_timer(agent.getAgentIOService()));
+        new boost::asio::deadline_timer(m_runtime.agent.getAgentIOService()));
     m_stats_timer->expires_from_now(boost::posix_time::seconds(3));
-    m_stats_timer->async_wait(bind(&VppManager::handleHWStatsTimer, this, error));
+    m_stats_timer->async_wait(
+        bind(&VppManager::handleHWStatsTimer, this, error));
 }
 
 void
@@ -149,7 +147,7 @@ VppManager::handleUplinkConfigure()
 {
     if (stopping) return;
 
-    m_uplink.configure(boost::asio::ip::host_name());
+    m_runtime.uplink.configure(boost::asio::ip::host_name());
 }
 
 void
@@ -174,8 +172,8 @@ VppManager::handleSweepTimer(const boost::system::error_code &ec)
         VOM::OM::sweep(BOOT_KEY);
     else if (!stopping)
     {
-        m_sweep_timer.reset(
-            new boost::asio::deadline_timer(agent.getAgentIOService()));
+        m_sweep_timer.reset(new boost::asio::deadline_timer(
+            m_runtime.agent.getAgentIOService()));
         m_sweep_timer->expires_from_now(boost::posix_time::seconds(30));
         m_sweep_timer->async_wait(
             bind(&VppManager::handleSweepTimer, this, error));
@@ -192,8 +190,8 @@ VppManager::handleHWPollTimer(const boost::system::error_code &ec)
         /*
          * re-scehdule a timer to Poll for HW liveness
          */
-        m_poll_timer.reset(
-            new boost::asio::deadline_timer(agent.getAgentIOService()));
+        m_poll_timer.reset(new boost::asio::deadline_timer(
+            m_runtime.agent.getAgentIOService()));
         m_poll_timer->expires_from_now(boost::posix_time::seconds(3));
         m_poll_timer->async_wait(
             bind(&VppManager::handleHWPollTimer, this, error));
@@ -212,8 +210,8 @@ VppManager::handleHWPollTimer(const boost::system::error_code &ec)
 
     if (!stopping)
     {
-        m_poll_timer.reset(
-            new boost::asio::deadline_timer(agent.getAgentIOService()));
+        m_poll_timer.reset(new boost::asio::deadline_timer(
+            m_runtime.agent.getAgentIOService()));
         m_poll_timer->expires_from_now(boost::posix_time::seconds(1));
         m_poll_timer->async_wait(
             bind(&VppManager::handleHWPollTimer, this, error));
@@ -232,12 +230,12 @@ VppManager::handleHWStatsTimer(const boost::system::error_code &ec)
     VLOGI << "stats reading";
 
     VOM::HW::read_stats();
-   
+
     m_stats_timer.reset(
-          new boost::asio::deadline_timer(agent.getAgentIOService()));
+        new boost::asio::deadline_timer(m_runtime.agent.getAgentIOService()));
     m_stats_timer->expires_from_now(boost::posix_time::seconds(3));
     m_stats_timer->async_wait(
-         bind(&VppManager::handleHWStatsTimer, this, error));
+        bind(&VppManager::handleHWStatsTimer, this, error));
 }
 
 void
@@ -255,10 +253,10 @@ void
 VppManager::registerModbListeners()
 {
     // Initialize policy listeners
-    agent.getEndpointManager().registerListener(this);
-    agent.getServiceManager().registerListener(this);
-    agent.getExtraConfigManager().registerListener(this);
-    agent.getPolicyManager().registerListener(this);
+    m_runtime.agent.getEndpointManager().registerListener(this);
+    m_runtime.agent.getServiceManager().registerListener(this);
+    m_runtime.agent.getExtraConfigManager().registerListener(this);
+    m_runtime.agent.getPolicyManager().registerListener(this);
 }
 
 void
@@ -266,13 +264,13 @@ VppManager::stop()
 {
     stopping = true;
 
-    agent.getEndpointManager().unregisterListener(this);
-    agent.getServiceManager().unregisterListener(this);
-    agent.getExtraConfigManager().unregisterListener(this);
-    agent.getPolicyManager().unregisterListener(this);
+    m_runtime.agent.getEndpointManager().unregisterListener(this);
+    m_runtime.agent.getServiceManager().unregisterListener(this);
+    m_runtime.agent.getExtraConfigManager().unregisterListener(this);
+    m_runtime.agent.getPolicyManager().unregisterListener(this);
 
     if (m_stats_timer)
-    {   
+    {
         m_stats_timer->cancel();
     }
 
@@ -299,7 +297,7 @@ VppManager::setVirtualRouter(bool virtualRouterEnabled,
 {
     if (virtualRouterEnabled)
     {
-        m_vr = std::make_shared<VirtualRouter>(virtualRouterMac);
+        m_runtime.vr = std::make_shared<VirtualRouter>(virtualRouterMac);
     }
 }
 
@@ -388,7 +386,7 @@ VppManager::configUpdated(const opflex::modb::URI &configURI)
 {
     VLOGI << "Config Updated ";
     if (stopping) return;
-    agent.getAgentIOService().dispatch(
+    m_runtime.agent.getAgentIOService().dispatch(
         bind(&VppManager::handleConfigUpdate, this, configURI));
 }
 
@@ -398,7 +396,7 @@ VppManager::portStatusUpdate(const std::string &portName,
                              bool fromDesc)
 {
     if (stopping) return;
-    agent.getAgentIOService().dispatch(
+    m_runtime.agent.getAgentIOService().dispatch(
         bind(&VppManager::handlePortStatusUpdate, this, portName, portNo));
 }
 
@@ -422,31 +420,34 @@ VppManager::handleDomainUpdate(opflex::modb::class_id_t cid,
         m_rdm->handle_update(domURI);
         break;
     case modelgbp::gbp::Subnet::CLASS_ID:
-        if (!modelgbp::gbp::Subnet::resolve(agent.getFramework(), domURI))
+        if (!modelgbp::gbp::Subnet::resolve(m_runtime.agent.getFramework(),
+                                            domURI))
         {
             VLOGD << "Cleaning up for Subnet: " << domURI;
         }
         break;
     case modelgbp::gbp::BridgeDomain::CLASS_ID:
-        if (!modelgbp::gbp::BridgeDomain::resolve(agent.getFramework(), domURI))
+        if (!modelgbp::gbp::BridgeDomain::resolve(
+                m_runtime.agent.getFramework(), domURI))
         {
             VLOGD << "Cleaning up for BD: " << domURI;
-            m_id_gen.erase(cid, domURI);
+            m_runtime.id_gen.erase(cid, domURI);
         }
         break;
     case modelgbp::gbp::FloodDomain::CLASS_ID:
-        if (!modelgbp::gbp::FloodDomain::resolve(agent.getFramework(), domURI))
+        if (!modelgbp::gbp::FloodDomain::resolve(m_runtime.agent.getFramework(),
+                                                 domURI))
         {
             VLOGD << "Cleaning up for FD: " << domURI;
-            m_id_gen.erase(cid, domURI);
+            m_runtime.id_gen.erase(cid, domURI);
         }
         break;
     case modelgbp::gbp::L3ExternalNetwork::CLASS_ID:
-        if (!modelgbp::gbp::L3ExternalNetwork::resolve(agent.getFramework(),
-                                                       domURI))
+        if (!modelgbp::gbp::L3ExternalNetwork::resolve(
+                m_runtime.agent.getFramework(), domURI))
         {
             VLOGD << "Cleaning up for L3ExtNet: " << domURI;
-            m_id_gen.erase(cid, domURI);
+            m_runtime.id_gen.erase(cid, domURI);
         }
         break;
     }
@@ -469,7 +470,8 @@ VppManager::initPlatformConfig()
 {
     boost::optional<std::shared_ptr<modelgbp::platform::Config>> config =
         modelgbp::platform::Config::resolve(
-            agent.getFramework(), agent.getPolicyManager().getOpflexDomain());
+            m_runtime.agent.getFramework(),
+            m_runtime.agent.getPolicyManager().getOpflexDomain());
 }
 
 void
@@ -486,7 +488,7 @@ VppManager::handleConfigUpdate(const opflex::modb::URI &configURI)
      * to VPP.
      */
     m_sweep_timer.reset(
-        new boost::asio::deadline_timer(agent.getAgentIOService()));
+        new boost::asio::deadline_timer(m_runtime.agent.getAgentIOService()));
     m_sweep_timer->expires_from_now(boost::posix_time::seconds(30));
     m_sweep_timer->async_wait(bind(&VppManager::handleSweepTimer, this, error));
 }
@@ -501,7 +503,7 @@ VppManager::handlePortStatusUpdate(const std::string &portName, uint32_t)
 Uplink &
 VppManager::uplink()
 {
-    return m_uplink;
+    return m_runtime.uplink;
 }
 CrossConnect &
 VppManager::crossConnect()

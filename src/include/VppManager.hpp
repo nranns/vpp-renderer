@@ -15,11 +15,9 @@
 #include <boost/noncopyable.hpp>
 #include <boost/optional.hpp>
 
-#include <vom/acl_ethertype.hpp>
-#include <vom/acl_list.hpp>
 #include <vom/hw.hpp>
 #include <vom/interface.hpp>
-#include <vom/interface_cmds.hpp>
+#include <vom/stat_reader.hpp>
 
 #include <opflex/ofcore/PeerStatusListener.h>
 
@@ -31,17 +29,7 @@
 #include "opflexagent/TaskQueue.h"
 
 #include "VppCrossConnect.hpp"
-#include "VppIdGen.hpp"
-#include "VppUplink.hpp"
-#include "VppVirtualRouter.hpp"
-
-/*
- * Forward declare classes to reduce compile time coupling
- */
-namespace VOM
-{
-class gbp_endpoint_group;
-};
+#include "VppRuntime.hpp"
 
 namespace VPP
 {
@@ -73,11 +61,10 @@ class VppManager : public opflexagent::EndpointListener,
      */
     VppManager(opflexagent::Agent &agent,
                opflexagent::IdGenerator &idGen,
-               VOM::HW::cmd_q *q);
+               VOM::HW::cmd_q *q,
+               VOM::stat_reader *sr);
 
-    ~VppManager()
-    {
-    }
+    ~VppManager() = default;
 
     /**
      * Module start
@@ -140,15 +127,6 @@ class VppManager : public opflexagent::EndpointListener,
     virtual void peerStatusUpdated(const std::string &peerHostname,
                                    int peerPort,
                                    PeerStatus peerStatus);
-
-    /**
-     * Get or generate a unique ID for a given object for use with flows.
-     *
-     * @param cid Class ID of the object
-     * @param uri URI of the object
-     * @return A unique ID for the object
-     */
-    uint32_t getId(opflex::modb::class_id_t cid, const opflex::modb::URI &uri);
 
     /**
      * Return the uplink object
@@ -236,15 +214,10 @@ class VppManager : public opflexagent::EndpointListener,
      */
     void handleHWStatsTimer(const boost::system::error_code &ec);
 
-    /**
-     * Referene to the uber-agent
+    /*
+     * A collection of runtime data that is available to the other managers
      */
-    opflexagent::Agent &agent;
-
-    /**
-     * Refernece to the ID generator instance
-     */
-    VPP::IdGen m_id_gen;
+    Runtime m_runtime;
 
     /**
      * The internal task-queue for handling the async upates
@@ -252,20 +225,10 @@ class VppManager : public opflexagent::EndpointListener,
     opflexagent::TaskQueue m_task_queue;
 
     /**
-     * Virtual Router Settings
-     */
-    std::shared_ptr<VPP::VirtualRouter> m_vr;
-
-    /**
      * The sweep boot state timer.
      *  This is a member here so it has access to the taskQ
      */
     std::unique_ptr<boost::asio::deadline_timer> m_sweep_timer;
-
-    /**
-     * Uplink interface manager
-     */
-    VPP::Uplink m_uplink;
 
     /**
      * CrossConnect interface manager

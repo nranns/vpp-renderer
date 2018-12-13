@@ -11,9 +11,7 @@
 
 #include <opflexagent/Agent.h>
 
-#include "VppIdGen.hpp"
-#include "VppUplink.hpp"
-#include "VppVirtualRouter.hpp"
+#include "VppRuntime.hpp"
 
 namespace VOM
 {
@@ -37,30 +35,22 @@ class EndPointGroupManager
     {
     };
 
-    EndPointGroupManager(opflexagent::Agent &agent,
-                         IdGen &id_gen,
-                         Uplink &uplink,
-                         std::shared_ptr<VirtualRouter> vr);
+    EndPointGroupManager(Runtime &runtime);
 
     static ForwardInfo
-    get_fwd_info(opflexagent::Agent &agent,
-                 IdGen &id_gen,
+    get_fwd_info(Runtime &r,
                  const opflex::modb::URI &uri) throw(NoFowardInfoException);
 
     void handle_update(const opflex::modb::URI &epgURI);
 
-    std::shared_ptr<VOM::gbp_endpoint_group>
-    mk_group(const std::string &key, const opflex::modb::URI &uri);
+    static std::shared_ptr<VOM::gbp_endpoint_group>
+    mk_group(Runtime &r, const std::string &key, const opflex::modb::URI &uri);
 
   private:
     /**
-     * Referene to the uber-agent
+     * Referene to runtime data.
      */
-    opflexagent::Agent &m_agent;
-
-    IdGen &m_id_gen;
-    Uplink &m_uplink;
-    std::shared_ptr<VirtualRouter> m_vr;
+    Runtime &m_runtime;
 };
 };
 

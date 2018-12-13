@@ -90,6 +90,7 @@ class Uplink : public dhcp_client::event_listener
     void insert_dhcp_options(std::string name);
 
     const boost::asio::ip::address &local_address() const;
+    const std::shared_ptr<interface> local_interface() const;
 
     /**
      * Handle notifications about DHCP complete
@@ -112,9 +113,14 @@ class Uplink : public dhcp_client::event_listener
     vxlan_tunnel::endpoint_t m_vxlan;
 
     /**
-     * A reference to the uplink physical insterface in the OM
+     * A reference to the uplink physical insterface
      */
     std::shared_ptr<interface> m_uplink;
+
+    /**
+     * A reference to the uplink vlan insterface
+     */
+    std::shared_ptr<interface> m_subitf;
 
     /**
      * the encap type on the uplinnk

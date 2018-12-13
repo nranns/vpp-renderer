@@ -19,19 +19,24 @@ BOOST_AUTO_TEST_SUITE(VppRenderer_test)
 class MockCmdQ : public VOM::HW::cmd_q
 {
   public:
-    MockCmdQ()
-    {
-    }
-    ~MockCmdQ()
-    {
-    }
+    MockCmdQ() = default;
+    ~MockCmdQ() = default;
+};
+class MockStatReader : public VOM::stat_reader
+{
+  public:
+    MockStatReader() = default;
+    ~MockStatReader() = default;
 };
 
 class MockVppManager : public VPP::VppManager
 {
   public:
-    MockVppManager(Agent &agent, IdGenerator &idGen, VOM::HW::cmd_q *q)
-        : VppManager(agent, idGen, q)
+    MockVppManager(Agent &agent,
+                   IdGenerator &idGen,
+                   VOM::HW::cmd_q *q,
+                   VOM::stat_reader *sr)
+        : VppManager(agent, idGen, q, sr)
     {
     }
     ~MockVppManager()
@@ -60,8 +65,10 @@ BOOST_FIXTURE_TEST_CASE(vpp, opflexagent::ModbFixture)
 
     IdGenerator *idGen = new IdGenerator();
     VOM::HW::cmd_q *vppQ = new MockCmdQ();
-    VPP::VppManager *vppManager = new MockVppManager(agent, *idGen, vppQ);
-    VPP::VppRenderer vpp(agent, *idGen, vppQ, vppManager);
+    VOM::stat_reader *vppSR = new MockStatReader();
+    VPP::VppManager *vppManager =
+        new MockVppManager(agent, *idGen, vppQ, vppSR);
+    VPP::VppRenderer vpp(agent, *idGen, vppManager);
     vpp.start();
     vpp.stop();
 }

@@ -20,6 +20,7 @@
 #include <vom/bridge_domain_entry.hpp>
 #include <vom/gbp_endpoint_group.hpp>
 #include <vom/gbp_subnet.hpp>
+#include <vom/gbp_vxlan.hpp>
 #include <vom/l2_binding.hpp>
 #include <vom/l3_binding.hpp>
 #include <vom/nat_binding.hpp>
@@ -27,6 +28,7 @@
 #include <vom/neighbour.hpp>
 #include <vom/om.hpp>
 #include <vom/route_domain.hpp>
+#include <vom/vxlan_tunnel.hpp>
 
 #include "VppEndPointGroupManager.hpp"
 #include "VppLog.hpp"
@@ -34,25 +36,17 @@
 
 namespace VPP
 {
-EndPointGroupManager::EndPointGroupManager(opflexagent::Agent &agent,
-                                           IdGen &id_gen,
-                                           Uplink &uplink,
-                                           std::shared_ptr<VirtualRouter> vr)
-    : m_agent(agent)
-    , m_id_gen(id_gen)
-    , m_uplink(uplink)
-    , m_vr(vr)
+EndPointGroupManager::EndPointGroupManager(Runtime &runtime)
+    : m_runtime(runtime)
 {
 }
 
 EndPointGroupManager::ForwardInfo
 EndPointGroupManager::get_fwd_info(
-    opflexagent::Agent &agent,
-    IdGen &id_gen,
-    const opflex::modb::URI &uri) throw(NoFowardInfoException)
+    Runtime &runtime, const opflex::modb::URI &uri) throw(NoFowardInfoException)
 {
     EndPointGroupManager::ForwardInfo fwd;
-    opflexagent::PolicyManager &polMgr = agent.getPolicyManager();
+    opflexagent::PolicyManager &polMgr = runtime.agent.getPolicyManager();
     boost::optional<uint32_t> epgVnid = polMgr.getVnidForGroup(uri);
 
     if (!epgVnid)
@@ -74,20 +68,21 @@ EndPointGroupManager::get_fwd_info(
     {
         fwd.rdURI = epgRd.get()->getURI();
         if (fwd.rdURI)
-            fwd.rdId = id_gen.get(modelgbp::gbp::RoutingDomain::CLASS_ID,
-                                  fwd.rdURI.get());
+            fwd.rdId = runtime.id_gen.get(
+                modelgbp::gbp::RoutingDomain::CLASS_ID, fwd.rdURI.get());
     }
     if (epgBd)
     {
         fwd.bdURI = epgBd.get()->getURI();
-        fwd.bdId =
-            id_gen.get(modelgbp::gbp::BridgeDomain::CLASS_ID, fwd.bdURI.get());
+        fwd.bdId = runtime.id_gen.get(modelgbp::gbp::BridgeDomain::CLASS_ID,
+                                      fwd.bdURI.get());
     }
     return fwd;
 }
 
 std::shared_ptr<VOM::gbp_endpoint_group>
-EndPointGroupManager::mk_group(const std::string &key,
+EndPointGroupManager::mk_group(Runtime &runtime,
+                               const std::string &key,
                                const opflex::modb::URI &uri)
 {
     std::shared_ptr<VOM::gbp_endpoint_group> gepg;
@@ -96,7 +91,7 @@ EndPointGroupManager::mk_group(const std::string &key,
     {
         EndPointGroupManager::ForwardInfo fwd;
 
-        fwd = get_fwd_info(m_agent, m_id_gen, uri);
+        fwd = get_fwd_info(runtime, uri);
 
         /*
          * Construct the Bridge and routing Domains
@@ -113,14 +108,14 @@ EndPointGroupManager::mk_group(const std::string &key,
                       interface::type_t::BVI,
                       interface::admin_state_t::UP,
                       rd);
-        if (m_vr)
+        if (runtime.vr)
         {
             /*
              * Set the BVI's MAC address to the Virtual Router
              * address, so packets destined to the VR are handled
              * by layer 3.
              */
-            bvi.set(m_vr->mac());
+            bvi.set(runtime.vr->mac());
         }
         OM::write(key, bvi);
 
@@ -137,7 +132,7 @@ EndPointGroupManager::mk_group(const std::string &key,
         OM::write(key, be);
 
         std::shared_ptr<SpineProxy> spine_proxy =
-            m_uplink.spine_proxy(fwd.vnid);
+            runtime.uplink.spine_proxy(fwd.vnid);
 
         if (spine_proxy)
         {
@@ -158,6 +153,48 @@ EndPointGroupManager::mk_group(const std::string &key,
             OM::write(key, grd);
 
             gepg = std::make_shared<gbp_endpoint_group>(fwd.vnid, grd, gbd);
+
+            /*
+             * Add the base GBP-vxlan tunnels that will be used to derive
+             * the learned endpoints
+             */
+            boost::optional<uint32_t> bd_vnid =
+                runtime.agent.getPolicyManager().getBDVnidForGroup(uri);
+            boost::optional<uint32_t> rd_vnid =
+                runtime.agent.getPolicyManager().getRDVnidForGroup(uri);
+
+            if (bd_vnid)
+            {
+                gbp_vxlan gvx_bd(bd_vnid.get(), gbd);
+                OM::write(key, gvx_bd);
+
+                /*
+                 * Add the Vxlan mcast tunnel that will carry the broadcast
+                 * and multicast traffic
+                 */
+                boost::optional<std::string> bd_mcast =
+                    runtime.agent.getPolicyManager().getBDMulticastIPForGroup(
+                        uri);
+                if (bd_mcast)
+                {
+                    boost::asio::ip::address dst =
+                        boost::asio::ip::address::from_string(bd_mcast.get());
+                    vxlan_tunnel vt_bd_mcast(runtime.uplink.local_address(),
+                                             dst,
+                                             bd_vnid.get(),
+                                             *runtime.uplink.local_interface(),
+                                             vxlan_tunnel::mode_t::GBP);
+                    OM::write(key, vt_bd_mcast);
+
+                    l2_binding l2_vxbd(vt_bd_mcast, bd);
+                    OM::write(key, l2_vxbd);
+                }
+            }
+            if (rd_vnid)
+            {
+                gbp_vxlan gvx_rd(rd_vnid.get(), grd);
+                OM::write(key, gvx_rd);
+            }
         }
         else
         {
@@ -167,7 +204,7 @@ EndPointGroupManager::mk_group(const std::string &key,
              * make the VLAN based uplink interface for the group
              */
             std::shared_ptr<interface> encap_link =
-                m_uplink.mk_interface(key, fwd.vnid);
+                runtime.uplink.mk_interface(key, fwd.vnid);
 
             /*
              * Add the encap-link to the BD
@@ -215,15 +252,16 @@ EndPointGroupManager::handle_update(const opflex::modb::URI &epgURI)
 
     VLOGD << "Updating endpoint-group:" << epgURI;
 
-    opflexagent::PolicyManager &pm = m_agent.getPolicyManager();
+    opflexagent::PolicyManager &pm = m_runtime.agent.getPolicyManager();
 
-    if (!m_agent.getPolicyManager().groupExists(epgURI))
+    if (!m_runtime.agent.getPolicyManager().groupExists(epgURI))
     {
         VLOGD << "Deleting endpoint-group:" << epgURI;
         return;
     }
 
-    std::shared_ptr<VOM::gbp_endpoint_group> gepg = mk_group(epg_uuid, epgURI);
+    std::shared_ptr<VOM::gbp_endpoint_group> gepg =
+        mk_group(m_runtime, epg_uuid, epgURI);
 
     if (gepg)
     {
@@ -251,7 +289,7 @@ EndPointGroupManager::handle_update(const opflex::modb::URI &epgURI)
          * For each subnet the EPG has
          */
         opflexagent::PolicyManager::subnet_vector_t subnets;
-        m_agent.getPolicyManager().getSubnetsForGroup(epgURI, subnets);
+        m_runtime.agent.getPolicyManager().getSubnetsForGroup(epgURI, subnets);
 
         for (auto sn : subnets)
         {

@@ -39,12 +39,8 @@ using namespace VOM;
 
 namespace VPP
 {
-RouteDomainManager::RouteDomainManager(opflexagent::Agent &agent,
-                                       IdGen &id_gen,
-                                       Uplink &uplink)
-    : m_agent(agent)
-    , m_id_gen(id_gen)
-    , m_uplink(uplink)
+RouteDomainManager::RouteDomainManager(Runtime &runtime)
+    : m_runtime(runtime)
 {
 }
 
@@ -102,12 +98,13 @@ RouteDomainManager::handle_update(const opflex::modb::URI &uri)
     OM::mark_n_sweep ms(uri.toString());
 
     boost::optional<std::shared_ptr<modelgbp::gbp::RoutingDomain>> op_opf_rd =
-        modelgbp::gbp::RoutingDomain::resolve(m_agent.getFramework(), uri);
+        modelgbp::gbp::RoutingDomain::resolve(m_runtime.agent.getFramework(),
+                                              uri);
 
     if (!op_opf_rd)
     {
         VLOGD << "Cleaning up for RD: " << uri;
-        m_id_gen.erase(modelgbp::gbp::RoutingDomain::CLASS_ID, uri);
+        m_runtime.id_gen.erase(modelgbp::gbp::RoutingDomain::CLASS_ID, uri);
         return;
     }
     std::shared_ptr<modelgbp::gbp::RoutingDomain> opf_rd = op_opf_rd.get();
@@ -119,13 +116,15 @@ RouteDomainManager::handle_update(const opflex::modb::URI &uri)
     /*
      * get all the subnets that are internal to this route domain
      */
-    opflexagent::network::subnets_t intSubnets = get_rd_subnets(m_agent, uri);
+    opflexagent::network::subnets_t intSubnets =
+        get_rd_subnets(m_runtime.agent, uri);
     boost::system::error_code ec;
 
     /*
      * create (or at least own) VPP's route-domain object
      */
-    uint32_t rdId = m_id_gen.get(modelgbp::gbp::RoutingDomain::CLASS_ID, uri);
+    uint32_t rdId =
+        m_runtime.id_gen.get(modelgbp::gbp::RoutingDomain::CLASS_ID, uri);
 
     VOM::route_domain rd(rdId);
     VOM::OM::write(rd_uuid, rd);
@@ -179,8 +178,9 @@ RouteDomainManager::handle_update(const opflex::modb::URI &uri)
             {
                 natEpg = natRef.get()->getTargetURI();
                 if (natEpg)
-                    natEpgVnid = m_agent.getPolicyManager().getVnidForGroup(
-                        natEpg.get());
+                    natEpgVnid =
+                        m_runtime.agent.getPolicyManager().getVnidForGroup(
+                            natEpg.get());
             }
 
             for (auto extSub : extSubs)
@@ -211,7 +211,7 @@ RouteDomainManager::handle_update(const opflex::modb::URI &uri)
                         EndPointGroupManager::ForwardInfo nat_fwd;
 
                         nat_fwd = EndPointGroupManager::get_fwd_info(
-                            m_agent, m_id_gen, natEpg.get());
+                            m_runtime, natEpg.get());
 
                         VOM::route_domain nat_rd(nat_fwd.rdId);
                         VOM::OM::write(rd_uuid, nat_rd);
@@ -219,7 +219,8 @@ RouteDomainManager::handle_update(const opflex::modb::URI &uri)
                         VOM::OM::write(rd_uuid, nat_bd);
 
                         std::shared_ptr<VOM::interface> encap_link =
-                            m_uplink.mk_interface(rd_uuid, natEpgVnid.get());
+                            m_runtime.uplink.mk_interface(rd_uuid,
+                                                          natEpgVnid.get());
 
                         gbp_endpoint_group nat_epg(
                             natEpgVnid.get(), *encap_link, nat_rd, nat_bd);

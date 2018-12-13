@@ -36,11 +36,11 @@ VppRendererPlugin::getNames() const
 opflexagent::Renderer *
 VppRendererPlugin::create(opflexagent::Agent &agent) const
 {
-
     IdGenerator *idGen = new IdGenerator();
     VOM::HW::cmd_q *vppQ = new VOM::HW::cmd_q();
-    VppManager *vppManager = new VppManager(agent, *idGen, vppQ);
-    return new VppRenderer(agent, *idGen, vppQ, vppManager);
+    VOM::stat_reader *vppSR = new stat_reader();
+    VppManager *vppManager = new VppManager(agent, *idGen, vppQ, vppSR);
+    return new VppRenderer(agent, *idGen, vppManager);
 }
 
 VPP::LogHandler vppLogHandler;
@@ -66,11 +66,9 @@ agentLevelToVom(opflexagent::LogLevel level)
 
 VppRenderer::VppRenderer(opflexagent::Agent &agent,
                          IdGenerator &idGen,
-                         VOM::HW::cmd_q *vppQ,
                          VppManager *vppManager)
     : Renderer(agent)
     , idGen(idGen)
-    , vppQ(vppQ)
     , vppManager(vppManager)
     , started(false)
 {
@@ -86,7 +84,6 @@ VppRenderer::VppRenderer(opflexagent::Agent &agent,
 
 VppRenderer::~VppRenderer()
 {
-    delete vppQ;
     delete vppManager;
 }
 

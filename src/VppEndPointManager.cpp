@@ -32,8 +32,8 @@
 #include <vom/om.hpp>
 #include <vom/route.hpp>
 #include <vom/route_domain.hpp>
-#include <vom/sub_interface.hpp>
 #include <vom/stat_reader.hpp>
+#include <vom/sub_interface.hpp>
 
 #include "VppEndPointGroupManager.hpp"
 #include "VppEndPointManager.hpp"
@@ -46,14 +46,8 @@ using namespace boost;
 
 namespace VPP
 {
-EndPointManager::EndPointManager(opflexagent::Agent &agent,
-                                 IdGen &id_gen,
-                                 Uplink &uplink,
-                                 std::shared_ptr<VirtualRouter> vr)
-    : m_agent(agent)
-    , m_id_gen(id_gen)
-    , m_uplink(uplink)
-    , m_vr(vr)
+EndPointManager::EndPointManager(Runtime &runtime)
+    : m_runtime(runtime)
 {
 }
 
@@ -87,8 +81,8 @@ EndPointManager::get_ep_interface_name(const opflexagent::Endpoint &ep) throw(
 std::shared_ptr<interface>
 EndPointManager::mk_bd_interface(
     const opflexagent::Endpoint &ep,
-    const bridge_domain &bd,
-    const route_domain &rd) throw(NoEpInterfaceException)
+    const std::shared_ptr<bridge_domain> bd,
+    const std::shared_ptr<route_domain> rd) throw(NoEpInterfaceException)
 {
     const optional<std::string> &epAccessItf = ep.getAccessInterface();
     const optional<std::string> &epItf = ep.getInterfaceName();
@@ -106,14 +100,14 @@ EndPointManager::mk_bd_interface(
         OM::write(uuid, intf);
 
         vlan_id = ep.getAccessIfaceVlan().get();
-        sub_interface sub_itf(intf, interface::admin_state_t::UP, rd, vlan_id);
+        sub_interface sub_itf(intf, interface::admin_state_t::UP, *rd, vlan_id);
         OM::write(uuid, sub_itf);
         itf = sub_itf.singular();
 
         /*
          * EP's interface is in the EPG's BD
          */
-        l2_binding l2itf(*itf, bd);
+        l2_binding l2itf(*itf, *bd);
         if (ep.getAccessIfaceVlan())
         {
             l2itf.set(l2_binding::l2_vtr_op_t::L2_VTR_POP_1, vlan_id);
@@ -126,7 +120,7 @@ EndPointManager::mk_bd_interface(
         interface intf(iname,
                        getIntfTypeFromName(iname),
                        interface::admin_state_t::UP,
-                       rd,
+                       *rd,
                        uuid);
         OM::write(uuid, intf);
         itf = intf.singular();
@@ -233,11 +227,11 @@ get_ep_ips(const opflexagent::Endpoint &ep)
 }
 
 void
-EndPointManager::handle_interface_stat_i(const interface& itf)
+EndPointManager::handle_interface_stat_i(const interface &itf)
 {
     VLOGD << "Interface Stat: " << itf.to_string();
 
-    opflexagent::EndpointManager &epMgr = m_agent.getEndpointManager();
+    opflexagent::EndpointManager &epMgr = m_runtime.agent.getEndpointManager();
 
     opflexagent::EndpointManager::EpCounters counters;
     std::unordered_set<std::string> endpoints;
@@ -271,17 +265,13 @@ EndPointManager::handle_interface_stat_i(const interface& itf)
             counters.txPackets = 0;
         if (counters.rxPackets == std::numeric_limits<uint64_t>::max())
             counters.rxPackets = 0;
-        if (counters.txBroadcast ==
-            std::numeric_limits<uint64_t>::max())
+        if (counters.txBroadcast == std::numeric_limits<uint64_t>::max())
             counters.txBroadcast = 0;
-        if (counters.rxBroadcast ==
-            std::numeric_limits<uint64_t>::max())
+        if (counters.rxBroadcast == std::numeric_limits<uint64_t>::max())
             counters.rxBroadcast = 0;
-        if (counters.txMulticast ==
-            std::numeric_limits<uint64_t>::max())
+        if (counters.txMulticast == std::numeric_limits<uint64_t>::max())
             counters.txMulticast = 0;
-        if (counters.rxMulticast ==
-            std::numeric_limits<uint64_t>::max())
+        if (counters.rxMulticast == std::numeric_limits<uint64_t>::max())
             counters.rxMulticast = 0;
         if (counters.txUnicast == std::numeric_limits<uint64_t>::max())
             counters.txUnicast = 0;
@@ -296,7 +286,7 @@ EndPointManager::handle_interface_stat_i(const interface& itf)
 }
 
 void
-EndPointManager::handle_interface_stat(const interface& itf)
+EndPointManager::handle_interface_stat(const interface &itf)
 {
     handle_interface_stat_i(itf);
 }
@@ -313,7 +303,7 @@ EndPointManager::handle_update(const std::string &uuid)
     system::error_code ec;
     int rv;
 
-    opflexagent::EndpointManager &epMgr = m_agent.getEndpointManager();
+    opflexagent::EndpointManager &epMgr = m_runtime.agent.getEndpointManager();
     std::shared_ptr<const opflexagent::Endpoint> epWrapper =
         epMgr.getEndpoint(uuid);
 
@@ -333,31 +323,16 @@ EndPointManager::handle_update(const std::string &uuid)
         return;
     }
 
-    EndPointGroupManager::ForwardInfo fwd;
+    std::shared_ptr<VOM::gbp_endpoint_group> gepg =
+        EndPointGroupManager::mk_group(m_runtime, uuid, epgURI.get());
 
-    try
+    if (gepg)
     {
-        fwd =
-            EndPointGroupManager::get_fwd_info(m_agent, m_id_gen, epgURI.get());
-
-        /*
-         * the route-domain the endpoint is in.
-         */
-        route_domain rd(fwd.rdId);
-        OM::write(uuid, rd);
-        bridge_domain bd(fwd.bdId, bridge_domain::learning_mode_t::OFF);
-        OM::write(uuid, bd);
-
-        std::shared_ptr<SpineProxy> spine_proxy =
-            m_uplink.spine_proxy(fwd.vnid);
-
-        /*
-         * VOM GBP Endpoint Group
-         */
-        std::shared_ptr<interface> encap_link =
-            m_uplink.mk_interface(epgURI.get().toString(), fwd.vnid);
-        gbp_endpoint_group gepg(fwd.vnid, *encap_link, rd, bd);
-        OM::write(uuid, gepg);
+        std::shared_ptr<interface> bvi = gepg->get_bridge_domain()->get_bvi();
+        std::shared_ptr<bridge_domain> bd =
+            gepg->get_bridge_domain()->get_bridge_domain();
+        std::shared_ptr<route_domain> rd =
+            gepg->get_route_domain()->get_route_domain();
 
         /*
          * We want a veth interface - admin up
@@ -413,7 +388,7 @@ EndPointManager::handle_update(const std::string &uuid)
                                    modelgbp::l2::EtherTypeEnumT::CONST_IPV6);
             }
 
-            SecurityGroupManager::build_update(m_agent,
+            SecurityGroupManager::build_update(m_runtime.agent,
                                                secGrps,
                                                secGrpId,
                                                in_rules,
@@ -560,15 +535,6 @@ EndPointManager::handle_update(const std::string &uuid)
                 OM::write(uuid, binding);
             }
 
-            /*
-             * Create/get the BVI interface for the EPG
-             */
-            interface bvi("bvi-" + std::to_string(bd.id()),
-                          interface::type_t::BVI,
-                          interface::admin_state_t::UP,
-                          rd);
-            OM::write(uuid, bvi);
-
             if (hasMac)
             {
                 mac_address_t vmac(macAddr);
@@ -576,15 +542,16 @@ EndPointManager::handle_update(const std::string &uuid)
                 /*
                  * add a GDBP endpoint
                  */
-                gbp_endpoint gbpe(*itf, ipAddresses, vmac, gepg);
+                gbp_endpoint gbpe(*itf, ipAddresses, vmac, *gepg);
                 OM::write(uuid, gbpe);
 
                 /*
                  * Floating IP addresses -> NAT
                  */
-                if (m_vr && (modelgbp::gbp::RoutingModeEnumT::CONST_ENABLED ==
-                             m_agent.getPolicyManager().getEffectiveRoutingMode(
-                                 epgURI.get())))
+                if (m_runtime.vr &&
+                    (modelgbp::gbp::RoutingModeEnumT::CONST_ENABLED ==
+                     m_runtime.agent.getPolicyManager().getEffectiveRoutingMode(
+                         epgURI.get())))
                 {
                     auto ipms = ep.getIPAddressMappings();
 
@@ -600,13 +567,13 @@ EndPointManager::handle_update(const std::string &uuid)
                          * the out2in translation applied.
                          */
                         interface recirc_itf("recirc-" +
-                                                 std::to_string(fwd.vnid),
+                                                 std::to_string(gepg->id()),
                                              interface::type_t::LOOPBACK,
                                              interface::admin_state_t::UP,
-                                             rd);
+                                             *rd);
                         OM::write(uuid, recirc_itf);
 
-                        l2_binding recirc_l2b(recirc_itf, bd);
+                        l2_binding recirc_l2b(recirc_itf, *bd);
                         OM::write(uuid, recirc_l2b);
 
                         nat_binding recirc_nb4(recirc_itf,
@@ -622,7 +589,7 @@ EndPointManager::handle_update(const std::string &uuid)
                         OM::write(uuid, recirc_nb6);
 
                         gbp_recirc grecirc(
-                            recirc_itf, gbp_recirc::type_t::INTERNAL, gepg);
+                            recirc_itf, gbp_recirc::type_t::INTERNAL, *gepg);
                         OM::write(uuid, grecirc);
 
                         for (auto &ipm : ipms)
@@ -649,7 +616,7 @@ EndPointManager::handle_update(const std::string &uuid)
                             try
                             {
                                 ffwd = EndPointGroupManager::get_fwd_info(
-                                    m_agent, m_id_gen, ipm.getEgURI().get());
+                                    m_runtime, ipm.getEgURI().get());
 
                                 VLOGD << "EP:" << uuid << " - add Floating IP"
                                       << floatingIp << " => " << mappedIp;
@@ -705,7 +672,7 @@ EndPointManager::handle_update(const std::string &uuid)
                                 /*
                                  * NAT static mapping
                                  */
-                                nat_static ns(rd, mappedIp, floatingIp);
+                                nat_static ns(*rd, mappedIp, floatingIp);
                                 OM::write(uuid, ns);
                             }
                             catch (EndPointGroupManager::NoFowardInfoException
@@ -722,10 +689,6 @@ EndPointManager::handle_update(const std::string &uuid)
         {
             VLOGD << "Endpoint - no interface " << uuid;
         }
-    }
-    catch (EndPointGroupManager::NoFowardInfoException &nofwd)
-    {
-        VLOGD << "Endpoint - no fwding " << uuid;
     }
 
     /*

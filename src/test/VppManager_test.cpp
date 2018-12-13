@@ -17,6 +17,8 @@
 
 #include <modelgbp/gbp/SecGroup.hpp>
 
+#include <vom/acl_ethertype.hpp>
+#include <vom/acl_list.hpp>
 #include <vom/bridge_domain.hpp>
 #include <vom/bridge_domain_arp_entry.hpp>
 #include <vom/bridge_domain_entry.hpp>
@@ -24,9 +26,11 @@
 #include <vom/gbp_endpoint.hpp>
 #include <vom/gbp_endpoint_group.hpp>
 #include <vom/gbp_subnet.hpp>
+#include <vom/gbp_vxlan.hpp>
 #include <vom/hw.hpp>
 #include <vom/inspect.hpp>
 #include <vom/interface.hpp>
+#include <vom/interface_cmds.hpp>
 #include <vom/l2_binding.hpp>
 #include <vom/l2_emulation.hpp>
 #include <vom/l3_binding.hpp>
@@ -38,6 +42,7 @@
 #include <vom/route.hpp>
 #include <vom/route.hpp>
 #include <vom/route_domain.hpp>
+#include <vom/stat_reader.hpp>
 #include <vom/sub_interface.hpp>
 
 #include "VppManager.hpp"
@@ -50,6 +55,14 @@ using boost::asio::ip::address;
 using boost::asio::ip::address_v4;
 
 BOOST_AUTO_TEST_SUITE(VppManager_test)
+
+struct MockStatReader : public stat_reader
+{
+    int
+    connect()
+    {
+    }
+};
 
 class MockCmdQ : public HW::cmd_q
 {
@@ -222,7 +235,8 @@ class VppManagerFixture : public ModbFixture
         , vMac{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
         , policyMgr(agent.getPolicyManager())
         , vppQ()
-        , vppManager(agent, idGen, &vppQ)
+        , vppSR()
+        , vppManager(agent, idGen, &vppQ, &vppSR)
         , inspector()
     {
         createVppObjects();
@@ -263,8 +277,12 @@ class VppManagerFixture : public ModbFixture
         fd1 = space->addGbpFloodDomain("fd1");
         fd1->setUnknownFloodMode(UnknownFloodModeEnumT::CONST_FLOOD);
         bd0 = space->addGbpBridgeDomain("bd0");
+        bd0->addGbpeInstContext()->setEncapId(0xAA);
+        bd0->addGbpeInstContext()->setMulticastGroupIP("224.1.1.1");
+
         bd1 = space->addGbpBridgeDomain("bd1");
         rd0 = space->addGbpRoutingDomain("rd0");
+        rd0->addGbpeInstContext()->setEncapId(0xBB);
 
         fd0->addGbpFloodDomainToNetworkRSrc()->setTargetBridgeDomain(
             bd0->getURI());
@@ -470,6 +488,7 @@ class VppManagerFixture : public ModbFixture
     PolicyManager &policyMgr;
     IdGenerator idGen;
     MockCmdQ vppQ;
+    MockStatReader vppSR;
 
     VPP::VppManager vppManager;
 
@@ -721,6 +740,11 @@ BOOST_FIXTURE_TEST_CASE(endpoint_group_add_del, VppStitchedManagerFixture)
                                     {address::from_string("2001:db8::"), 32},
                                     gbp_subnet::type_t::STITCHED_INTERNAL));
 
+    WAIT_FOR_NOT_PRESENT(*v_epg0);
+    delete v_epg0;
+    WAIT_FOR_NOT_PRESENT(*v_epg1);
+    delete v_epg1;
+
     WAIT_FOR_NOT_PRESENT(l2_binding(v_upl_epg0, v_bd_epg0));
     WAIT_FOR_NOT_PRESENT(l2_binding(*v_bvi_epg0, v_bd_epg0));
     WAIT_FOR_NOT_PRESENT(*v_bvi_epg0);
@@ -730,11 +754,6 @@ BOOST_FIXTURE_TEST_CASE(endpoint_group_add_del, VppStitchedManagerFixture)
     WAIT_FOR_NOT_PRESENT(l2_binding(*v_bvi_epg1, v_bd_epg1));
     WAIT_FOR_NOT_PRESENT(*v_bvi_epg1);
     delete v_bvi_epg1;
-
-    WAIT_FOR_NOT_PRESENT(*v_epg0);
-    delete v_epg0;
-    WAIT_FOR_NOT_PRESENT(*v_epg1);
-    delete v_epg1;
 
     /*
      * If the RDs have gone we can be sure the routes have too.
@@ -892,6 +911,11 @@ BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppStitchedManagerFixture)
     vppManager.domainUpdated(modelgbp::gbp::RoutingDomain::CLASS_ID,
                              rd0->getURI());
 
+    WAIT_FOR_NOT_PRESENT(*v_epg0);
+    delete v_epg0;
+    WAIT_FOR_NOT_PRESENT(*v_epg1);
+    delete v_epg1;
+
     WAIT_FOR_NOT_PRESENT(l2_binding(v_upl_epg0, v_bd_epg0));
     WAIT_FOR_NOT_PRESENT(l2_binding(*v_bvi_epg0, v_bd_epg0));
     WAIT_FOR_NOT_PRESENT(*v_bvi_epg0);
@@ -901,11 +925,6 @@ BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppStitchedManagerFixture)
     WAIT_FOR_NOT_PRESENT(l2_binding(*v_bvi_epg1, v_bd_epg1));
     WAIT_FOR_NOT_PRESENT(*v_bvi_epg1);
     delete v_bvi_epg1;
-
-    WAIT_FOR_NOT_PRESENT(*v_epg0);
-    delete v_epg0;
-    WAIT_FOR_NOT_PRESENT(*v_epg1);
-    delete v_epg1;
 
     /*
      * if the RD has gone then so have all the rest of the routes.
@@ -1388,10 +1407,8 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
     route_domain v_rd(100);
     WAIT_FOR_MATCH(v_rd);
 
-    interface *v_bvi = new interface("bvi-100",
-                                     interface::type_t::BVI,
-                                     interface::admin_state_t::UP,
-                                     v_rd);
+    interface *v_bvi = new interface(
+        "bvi-100", interface::type_t::BVI, interface::admin_state_t::UP, v_rd);
     v_bvi->set(vMac);
 
     WAIT_FOR_MATCH(*v_bvi);
@@ -1399,14 +1416,14 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
     /*
      * the interfaces to the spine proxy.
      */
-    vxlan_tunnel *vt_mac = new vxlan_tunnel(host, spine_mac, 0xA0A,
-                                            vxlan_tunnel::mode_t::GBP);
+    vxlan_tunnel *vt_mac =
+        new vxlan_tunnel(host, spine_mac, 0xA0A, vxlan_tunnel::mode_t::GBP);
     WAIT_FOR_MATCH(*vt_mac);
-    vxlan_tunnel *vt_v4 = new vxlan_tunnel(host, spine_v4, 0xA0A,
-                                           vxlan_tunnel::mode_t::GBP);
+    vxlan_tunnel *vt_v4 =
+        new vxlan_tunnel(host, spine_v4, 0xA0A, vxlan_tunnel::mode_t::GBP);
     WAIT_FOR_MATCH(*vt_v4);
-    vxlan_tunnel *vt_v6 = new vxlan_tunnel(host, spine_v6, 0xA0A,
-                                           vxlan_tunnel::mode_t::GBP);
+    vxlan_tunnel *vt_v6 =
+        new vxlan_tunnel(host, spine_v6, 0xA0A, vxlan_tunnel::mode_t::GBP);
     WAIT_FOR_MATCH(*vt_v6);
 
     gbp_bridge_domain *v_gbd = new gbp_bridge_domain(v_bd, *v_bvi, *vt_mac);
@@ -1414,9 +1431,22 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
     gbp_route_domain *v_grd = new gbp_route_domain(v_rd, *vt_v4, *vt_v6);
     WAIT_FOR_MATCH(*v_grd);
 
-    gbp_endpoint_group *v_epg =
-        new gbp_endpoint_group(0xA0A, *v_grd, *v_gbd);
+    gbp_endpoint_group *v_epg = new gbp_endpoint_group(0xA0A, *v_grd, *v_gbd);
     WAIT_FOR_MATCH(*v_epg);
+
+    WAIT_FOR_MATCH(gbp_vxlan(0xAA, *v_gbd));
+    WAIT_FOR_MATCH(gbp_vxlan(0xBB, *v_grd));
+
+    /*
+     * mcast vxlan tunnels bound to BD
+     */
+    boost::asio::ip::address bd_mcast =
+        boost::asio::ip::address::from_string("224.1.1.1");
+
+    vxlan_tunnel vt_bd_mcast(
+        host, bd_mcast, 0xAA, v_sub, vxlan_tunnel::mode_t::GBP);
+    WAIT_FOR_MATCH(vt_bd_mcast);
+    WAIT_FOR_MATCH(l2_binding(vt_bd_mcast, v_bd));
 
     removeEpg(epg0);
     vppManager.egDomainUpdated(epg0->getURI());
