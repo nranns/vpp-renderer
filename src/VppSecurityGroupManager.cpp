@@ -47,20 +47,36 @@ setParamUpdate(modelgbp::gbpe::L24Classifier &cls, ACL::l3_rule &rule)
     {
         rule.set_src_from_port(cls.getSFromPort(0));
     }
+    else if (cls.isIcmpTypeSet())
+    {
+        rule.set_src_from_port(cls.getIcmpType(0));
+    }
 
     if (cls.isSToPortSet())
     {
         rule.set_src_to_port(cls.getSToPort(0));
+    }
+    else if (cls.isIcmpTypeSet())
+    {
+        rule.set_src_to_port(cls.getIcmpType(0));
     }
 
     if (cls.isDFromPortSet())
     {
         rule.set_dst_from_port(cls.getDFromPort(0));
     }
+    else if (cls.isIcmpCodeSet())
+    {
+        rule.set_dst_from_port(cls.getIcmpCode(0));
+    }
 
     if (cls.isDToPortSet())
     {
         rule.set_dst_to_port(cls.getDToPort(0));
+    }
+    else if (cls.isIcmpCodeSet())
+    {
+        rule.set_dst_to_port(cls.getIcmpCode(0));
     }
 
     if (6 == cls.getProt(0) && cls.isTcpFlagsSet())

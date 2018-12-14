@@ -14,6 +14,8 @@
 
 #include "VppIdGen.hpp"
 
+#include <vom/acl_list.hpp>
+
 namespace VPP
 {
 class ContractManager
@@ -30,6 +32,10 @@ class ContractManager
     opflexagent::Agent &m_agent;
     IdGen &m_id_gen;
 };
+
+extern void setParamUpdate(modelgbp::gbpe::L24Classifier &cls,
+                           VOM::ACL::l3_rule &rule);
+
 }; // namespace VPP
 
 /*

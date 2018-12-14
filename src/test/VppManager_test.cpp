@@ -23,6 +23,7 @@
 #include <vom/bridge_domain_arp_entry.hpp>
 #include <vom/bridge_domain_entry.hpp>
 #include <vom/dhcp_client.hpp>
+#include <vom/gbp_contract.hpp>
 #include <vom/gbp_endpoint.hpp>
 #include <vom/gbp_endpoint_group.hpp>
 #include <vom/gbp_subnet.hpp>
@@ -1359,6 +1360,183 @@ BOOST_FIXTURE_TEST_CASE(secGroup, VppStitchedManagerFixture)
     WAIT_FOR1(is_match(ACL::l3_list(secGrpKey2 + "-in", rules2)));
 
     delete v_itf;
+}
+
+BOOST_FIXTURE_TEST_CASE(policy, VppStitchedManagerFixture) {
+    createObjects();
+    createPolicyObjects();
+    PolicyManager::uri_set_t egs;
+    WAIT_FOR_DO(egs.size() == 2, 1000, egs.clear();
+                policyMgr.getContractProviders(con1->getURI(), egs));
+    egs.clear();
+    WAIT_FOR_DO(egs.size() == 2, 500, egs.clear();
+                policyMgr.getContractConsumers(con1->getURI(), egs));
+    egs.clear();
+
+    WAIT_FOR_DO(egs.size() == 2, 500, egs.clear();
+                policyMgr.getContractIntra(con2->getURI(), egs));
+    egs.clear();
+
+    WAIT_FOR_DO(egs.size() == 1, 1000, egs.clear();
+                policyMgr.getContractProviders(con4->getURI(), egs));
+
+    /* add con2 */
+    vppManager.contractUpdated(con2->getURI());
+
+    ACL::ethertype_rule_t e1(ethertype_t::FCOE, direction_t::OUTPUT);
+    ACL::ethertype_rule_t e2(ethertype_t::FCOE, direction_t::INPUT);
+
+    ACL::acl_ethertype::ethertype_rules_t e_rules1 = {
+        e1, e2};
+
+    /* add con4 */
+    vppManager.contractUpdated(con4->getURI());
+    ACL::ethertype_rule_t e3(ethertype_t::IPV4, direction_t::OUTPUT);
+    ACL::ethertype_rule_t e4(ethertype_t::IPV4, direction_t::INPUT);
+
+    ACL::acl_ethertype::ethertype_rules_t e_rules2 = {
+        e3, e4};
+
+    ACL::action_t act = ACL::action_t::PERMIT;
+    ACL::l3_rule rule1(8192,
+                       act,
+                       route::prefix_t::ZERO,
+                       route::prefix_t::ZERO,
+                       6,
+                       0,
+                       65535,
+                       80,
+                       65535,
+                       0,
+                       0);
+    ACL::l3_list::rules_t rules1({rule1});
+
+    ACL::l3_list inAcl(con4->getURI().toString() + "in", rules1);
+    WAIT_FOR_MATCH(inAcl);
+
+    ACL::l3_list outAcl(con4->getURI().toString() + "out", rules1);
+    WAIT_FOR_MATCH(outAcl);
+
+    WAIT_FOR1(is_match(gbp_contract(3850, 3851, inAcl)));
+    WAIT_FOR1(is_match(gbp_contract(3851, 3850, outAcl)));
+
+    /* add con1 */
+    vppManager.contractUpdated(con1->getURI());
+    ACL::ethertype_rule_t e5(ethertype_t::IPV4, direction_t::OUTPUT);
+    ACL::ethertype_rule_t e6(ethertype_t::ARP, direction_t::INPUT);
+    ACL::ethertype_rule_t e7(ethertype_t::IPV4, direction_t::OUTPUT);
+    ACL::ethertype_rule_t e8(ethertype_t::IPV4, direction_t::OUTPUT);
+
+    ACL::acl_ethertype::ethertype_rules_t e_rules3 = {
+        e5, e6, e7, e8};
+
+    ACL::l3_rule rule2(8192,
+                       act,
+                       route::prefix_t::ZERO,
+                       route::prefix_t::ZERO,
+                       6,
+                       0,
+                       65535,
+                       80,
+                       65535,
+                       0,
+                       0);
+    ACL::l3_rule rule3(7936,
+                       act,
+                       route::prefix_t::ZERO,
+                       route::prefix_t::ZERO,
+                       6,
+                       22,
+                       65535,
+                       0,
+                       65535,
+                       3,
+                       3);
+    ACL::l3_rule rule4(7808,
+                       act,
+                       route::prefix_t::ZERO,
+                       route::prefix_t::ZERO,
+                       6,
+                       21,
+                       65535,
+                       0,
+                       65535,
+                       16,
+                       16);
+    ACL::l3_list::rules_t rules2({rule2, rule3, rule4});
+
+    ACL::l3_list outAcl2(con1->getURI().toString() + "out", rules2);
+    WAIT_FOR_MATCH(outAcl2);
+
+    WAIT_FOR1(is_match(gbp_contract(3339, 2570, outAcl2)));
+    WAIT_FOR1(is_match(gbp_contract(3339, 2571, outAcl2)));
+    WAIT_FOR1(is_match(gbp_contract(3338, 2570, outAcl2)));
+    WAIT_FOR1(is_match(gbp_contract(3338, 2571, outAcl2)));
+}
+
+BOOST_FIXTURE_TEST_CASE(policyPortRange, VppStitchedManagerFixture) {
+    createObjects();
+    createPolicyObjects();
+
+    PolicyManager::uri_set_t egs;
+    WAIT_FOR_DO(egs.size() == 1, 1000, egs.clear();
+                policyMgr.getContractProviders(con3->getURI(), egs));
+    egs.clear();
+    WAIT_FOR_DO(egs.size() == 1, 500, egs.clear();
+                policyMgr.getContractConsumers(con3->getURI(), egs));
+    PolicyManager::rule_list_t rules;
+    WAIT_FOR_DO(rules.size() == 3, 500, rules.clear();
+                policyMgr.getContractRules(con3->getURI(), rules));
+
+    vppManager.contractUpdated(con3->getURI());
+    ACL::ethertype_rule_t e1(ethertype_t::IPV4, direction_t::OUTPUT);
+    ACL::ethertype_rule_t e2(ethertype_t::IPV4, direction_t::OUTPUT);
+    ACL::ethertype_rule_t e3(ethertype_t::IPV4, direction_t::OUTPUT);
+
+    ACL::acl_ethertype::ethertype_rules_t e_rules = {
+        e1, e2, e3};
+
+    ACL::action_t act = ACL::action_t::PERMIT;
+    ACL::action_t act1 = ACL::action_t::DENY;
+    ACL::l3_rule rule1(8192,
+                       act1,
+                       route::prefix_t::ZERO,
+                       route::prefix_t::ZERO,
+                       6,
+                       0,
+                       65535,
+                       80,
+                       85,
+                       0,
+                       0);
+    ACL::l3_rule rule2(8064,
+                       act,
+                       route::prefix_t::ZERO,
+                       route::prefix_t::ZERO,
+                       6,
+                       66,
+                       69,
+                       94,
+                       95,
+                       0,
+                       0);
+    ACL::l3_rule rule3(7936,
+                       act,
+                       route::prefix_t::ZERO,
+                       route::prefix_t::ZERO,
+                       1,
+                       10,
+                       10,
+                       5,
+                       5,
+                       0,
+                       0);
+    ACL::l3_list::rules_t rules1({rule1, rule2, rule3});
+
+    ACL::l3_list outAcl(con3->getURI().toString() + "out", rules1);
+    WAIT_FOR_MATCH(outAcl);
+
+    WAIT_FOR1(is_match(gbp_contract(2571, 2570, outAcl)));
 }
 
 BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
