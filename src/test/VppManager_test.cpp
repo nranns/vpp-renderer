@@ -40,7 +40,6 @@
 #include <vom/nat_static.hpp>
 #include <vom/neighbour.hpp>
 #include <vom/route.hpp>
-#include <vom/route.hpp>
 #include <vom/route_domain.hpp>
 #include <vom/stat_reader.hpp>
 #include <vom/sub_interface.hpp>
@@ -60,6 +59,16 @@ struct MockStatReader : public stat_reader
 {
     int
     connect()
+    {
+    }
+
+    void
+    disconnect()
+    {
+    }
+
+    void
+    read()
     {
     }
 };
@@ -1178,7 +1187,6 @@ BOOST_FIXTURE_TEST_CASE(secGroup, VppStitchedManagerFixture)
     createPolicyObjects();
 
     PolicyManager::rule_list_t lrules;
-    assignEpg0ToFd0();
     vppManager.egDomainUpdated(epg0->getURI());
     vppManager.endpointUpdated(ep0->getUUID());
 
@@ -1285,9 +1293,12 @@ BOOST_FIXTURE_TEST_CASE(secGroup, VppStitchedManagerFixture)
                        16);
     ACL::l3_list::rules_t rules({rule1, rule2, rule3, rule4});
 
-    WAIT_FOR1(is_match(ACL::l3_list("/PolicyUniverse/PolicySpace/"
-                                    "tenant0/GbpSecGroup/secgrp1/out",
-                                    rules)));
+    boost::hash<std::string> string_hash;
+    const std::string secGrpKey =
+        std::to_string(string_hash("/PolicyUniverse/PolicySpace/"
+                                   "tenant0/GbpSecGroup/secgrp1/"));
+
+    WAIT_FOR1(is_match(ACL::l3_list(secGrpKey + "-out", rules)));
 
     {
         opflex::modb::Mutator mutator(framework, policyOwner);
@@ -1339,11 +1350,14 @@ BOOST_FIXTURE_TEST_CASE(secGroup, VppStitchedManagerFixture)
                        0,
                        0);
     ACL::l3_list::rules_t rules2({rule5});
-    WAIT_FOR1(
-        is_match(ACL::l3_list("/PolicyUniverse/PolicySpace/"
-                              "tenant0/GbpSecGroup/secgrp1/,/PolicyUniverse/"
-                              "PolicySpace/tenant0/GbpSecGroup/secgrp2/in",
-                              rules2)));
+
+    const std::string secGrpKey2 = std::to_string(
+        string_hash("/PolicyUniverse/PolicySpace/"
+                    "tenant0/GbpSecGroup/secgrp1/,/PolicyUniverse/"
+                    "PolicySpace/tenant0/GbpSecGroup/secgrp2/"));
+
+    WAIT_FOR1(is_match(ACL::l3_list(secGrpKey2 + "-in", rules2)));
+
     delete v_itf;
 }
 
