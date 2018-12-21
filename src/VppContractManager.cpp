@@ -141,7 +141,8 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
 
     gbp_contract::gbp_rules_t gbp_rules;
     ACL::l3_list::rules_t in_rules, out_rules;
-    ACL::acl_ethertype::ethertype_rules_t ethertype_rules;
+    gbp_contract::ethertype_set_t in_ethertypes, out_ethertypes;
+
     for (auto rule : rules)
     {
         uint8_t dir = rule->getDirection();
@@ -158,20 +159,20 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
         if (dir == modelgbp::gbp::DirectionEnumT::CONST_BIDIRECTIONAL ||
             dir == modelgbp::gbp::DirectionEnumT::CONST_IN)
         {
-            ACL::ethertype_rule_t et(etherType, direction_t::OUTPUT);
-            ethertype_rules.insert(et);
+            auto it = out_ethertypes.find(etherType);
+            if (it == out_ethertypes.end()) out_ethertypes.insert(etherType);
         }
         if (dir == modelgbp::gbp::DirectionEnumT::CONST_BIDIRECTIONAL ||
             dir == modelgbp::gbp::DirectionEnumT::CONST_OUT)
         {
-            ACL::ethertype_rule_t et(etherType, direction_t::INPUT);
-            ethertype_rules.insert(et);
+            auto it = in_ethertypes.find(etherType);
+            if (it == in_ethertypes.end()) in_ethertypes.insert(etherType);
         }
 
         if (etherType != modelgbp::l2::EtherTypeEnumT::CONST_IPV4 &&
             etherType != modelgbp::l2::EtherTypeEnumT::CONST_IPV6)
         {
-            VLOGW << "Contract for Protocol " << etherType.to_string()
+            VLOGD << "Contract for Protocol " << etherType.to_string()
                   << " ,(IPv4/IPv6)"
                   << " are allowed";
             continue;
@@ -249,6 +250,17 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
                 gbp_rules.insert(gr);
             }
         }
+        else if (act == ACL::action_t::PERMIT ||
+                 act == ACL::action_t::PERMITANDREFLEX)
+        {
+            gbp_rule gr(rule->getPriority(), gbp_rule::action_t::PERMIT);
+            gbp_rules.insert(gr);
+        }
+        else
+        {
+            gbp_rule gr(rule->getPriority(), gbp_rule::action_t::DENY);
+            gbp_rules.insert(gr);
+        }
     }
 
     for (const uint32_t &pvnid : provIds)
@@ -260,21 +272,13 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
 
             VLOGD << "Contract prov:" << pvnid << " cons:" << cvnid;
 
-            if (!ethertype_rules.empty())
-            {
-                for (auto &e : ethertype_rules)
-                    VLOGD << e.to_string();
-            }
-            gbp_contract::ethertype_set_t allowed_ethertypes = {
-                ethertype_t::IPV4, ethertype_t::IPV6, ethertype_t::ARP};
-
             if (!in_rules.empty())
             {
                 ACL::l3_list inAcl(uuid + "in", in_rules);
                 OM::write(uuid, inAcl);
 
                 gbp_contract gbpc_in(
-                    pvnid, cvnid, inAcl, gbp_rules, allowed_ethertypes);
+                    pvnid, cvnid, inAcl, gbp_rules, in_ethertypes);
                 OM::write(uuid, gbpc_in);
             }
             if (!out_rules.empty())
@@ -283,7 +287,7 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
                 OM::write(uuid, outAcl);
 
                 gbp_contract gbpc_out(
-                    cvnid, pvnid, outAcl, gbp_rules, allowed_ethertypes);
+                    cvnid, pvnid, outAcl, gbp_rules, out_ethertypes);
                 OM::write(uuid, gbpc_out);
             }
         }

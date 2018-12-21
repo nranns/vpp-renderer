@@ -15,6 +15,7 @@
 #include <boost/optional.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include <modelgbp/gbp/HashProfOptionEnumT.hpp>
 #include <modelgbp/gbp/SecGroup.hpp>
 
 #include <vom/acl_ethertype.hpp>
@@ -492,7 +493,7 @@ class VppManagerFixture : public ModbFixture
     }
 
     std::shared_ptr<Endpoint> ep5;
-    std::shared_ptr<modelgbp::gbp::EpGroup> epg5, epg_nat;
+    std::shared_ptr<modelgbp::gbp::EpGroup> epg_nat;
     std::shared_ptr<modelgbp::gbp::L3ExternalNetwork> l3ext_net;
     std::shared_ptr<modelgbp::gbp::RoutingDomain> rd_ext;
 
@@ -1421,17 +1422,8 @@ BOOST_FIXTURE_TEST_CASE(policy, VppStitchedManagerFixture)
     /* add con2 */
     vppManager.contractUpdated(con2->getURI());
 
-    ACL::ethertype_rule_t e1(ethertype_t::FCOE, direction_t::OUTPUT);
-    ACL::ethertype_rule_t e2(ethertype_t::FCOE, direction_t::INPUT);
-
-    ACL::acl_ethertype::ethertype_rules_t e_rules1 = {e1, e2};
-
     /* add con4 */
     vppManager.contractUpdated(con4->getURI());
-    ACL::ethertype_rule_t e3(ethertype_t::IPV4, direction_t::OUTPUT);
-    ACL::ethertype_rule_t e4(ethertype_t::IPV4, direction_t::INPUT);
-
-    ACL::acl_ethertype::ethertype_rules_t e_rules2 = {e3, e4};
 
     ACL::action_t act = ACL::action_t::PERMIT;
     ACL::l3_rule rule1(8192,
@@ -1453,21 +1445,15 @@ BOOST_FIXTURE_TEST_CASE(policy, VppStitchedManagerFixture)
     ACL::l3_list outAcl(con4->getURI().toString() + "out", rules1);
     WAIT_FOR_MATCH(outAcl);
 
-    gbp_contract::gbp_rules_t grules1 = {{1, gbp_rule::action_t::PERMIT}};
-    gbp_contract::ethertype_set_t allowed1 = {
-        ethertype_t::IPV4, ethertype_t::IPV6, ethertype_t::ARP};
+    gbp_contract::gbp_rules_t grules1 = {{8192, gbp_rule::action_t::PERMIT}};
+    gbp_contract::ethertype_set_t allowed1 = {ethertype_t::IPV4,
+                                              ethertype_t::FCOE};
 
     WAIT_FOR1(is_match(gbp_contract(3850, 3851, inAcl, grules1, allowed1)));
     WAIT_FOR1(is_match(gbp_contract(3851, 3850, outAcl, grules1, allowed1)));
 
     /* add con1 */
     vppManager.contractUpdated(con1->getURI());
-    ACL::ethertype_rule_t e5(ethertype_t::IPV4, direction_t::OUTPUT);
-    ACL::ethertype_rule_t e6(ethertype_t::ARP, direction_t::INPUT);
-    ACL::ethertype_rule_t e7(ethertype_t::IPV4, direction_t::OUTPUT);
-    ACL::ethertype_rule_t e8(ethertype_t::IPV4, direction_t::OUTPUT);
-
-    ACL::acl_ethertype::ethertype_rules_t e_rules3 = {e5, e6, e7, e8};
 
     ACL::l3_rule rule2(8192,
                        act,
@@ -1507,9 +1493,11 @@ BOOST_FIXTURE_TEST_CASE(policy, VppStitchedManagerFixture)
     ACL::l3_list outAcl2(con1->getURI().toString() + "out", rules2);
     WAIT_FOR_MATCH(outAcl2);
 
-    gbp_contract::gbp_rules_t grules2 = {{1, gbp_rule::action_t::PERMIT}};
-    gbp_contract::ethertype_set_t allowed2 = {
-        ethertype_t::IPV4, ethertype_t::IPV6, ethertype_t::ARP};
+    gbp_contract::gbp_rules_t grules2 = {{8192, gbp_rule::action_t::PERMIT},
+                                         {7936, gbp_rule::action_t::PERMIT},
+                                         {7808, gbp_rule::action_t::PERMIT}};
+    gbp_contract::ethertype_set_t allowed2 = {ethertype_t::IPV4,
+                                              ethertype_t::ARP};
 
     WAIT_FOR1(is_match(gbp_contract(3339, 2570, outAcl2, grules2, allowed2)));
     WAIT_FOR1(is_match(gbp_contract(3339, 2571, outAcl2, grules2, allowed2)));
@@ -1578,11 +1566,130 @@ BOOST_FIXTURE_TEST_CASE(policyPortRange, VppStitchedManagerFixture)
 
     ACL::l3_list outAcl(con3->getURI().toString() + "out", rules1);
     WAIT_FOR_MATCH(outAcl);
-    gbp_contract::gbp_rules_t grules = {{1, gbp_rule::action_t::PERMIT}};
-    gbp_contract::ethertype_set_t allowed = {
-        ethertype_t::IPV4, ethertype_t::IPV6, ethertype_t::ARP};
+    gbp_contract::gbp_rules_t grules = {{8192, gbp_rule::action_t::PERMIT},
+                                        {7936, gbp_rule::action_t::PERMIT},
+                                        {7808, gbp_rule::action_t::PERMIT}};
+
+    gbp_contract::ethertype_set_t allowed = {ethertype_t::IPV4,
+                                             ethertype_t::ARP};
 
     WAIT_FOR1(is_match(gbp_contract(2571, 2570, outAcl, grules, allowed)));
+}
+
+BOOST_FIXTURE_TEST_CASE(policyRedirect, VppTransportManagerFixture)
+{
+    using modelgbp::gbpe::L24Classifier;
+    using namespace modelgbp;
+    using namespace modelgbp::gbp;
+    using namespace std;
+
+    createObjects();
+    createPolicyObjects();
+
+    shared_ptr<Contract> con5;
+    shared_ptr<L24Classifier> classifier11;
+    shared_ptr<RedirectAction> action3;
+    shared_ptr<RedirectDestGroup> redirDstGrp1;
+    shared_ptr<RedirectDestGroup> redirDstGrp2;
+    shared_ptr<RedirectDest> redirDst1;
+    shared_ptr<RedirectDest> redirDst2;
+    shared_ptr<RedirectDest> redirDst3;
+    shared_ptr<RedirectDest> redirDst4;
+    shared_ptr<RedirectDest> redirDst5;
+
+    opflex::modb::Mutator mutator(framework, policyOwner);
+    classifier11 = space->addGbpeL24Classifier("classifier11");
+    classifier11->setEtherT(l2::EtherTypeEnumT::CONST_IPV4)
+        .setProt(6 /* TCP */)
+        .setDFromPort(80);
+
+    redirDstGrp1 = space->addGbpRedirectDestGroup("redirDstGrp1");
+    redirDstGrp1->setHashOpt(HashProfOptionEnumT::CONST_SYMMETRIC);
+    redirDstGrp1->setHashParam(1);
+    redirDst1 = redirDstGrp1->addGbpRedirectDest("redirDst1");
+    redirDst2 = redirDstGrp1->addGbpRedirectDest("redirDst2");
+    opflex::modb::MAC mac1("00:01:02:03:04:05"), mac2("01:02:03:04:05:06");
+    redirDst1->setIp("1.1.1.1");
+    redirDst1->setMac(mac1);
+    redirDst1->addGbpRedirectDestToDomainRSrcBridgeDomain(
+        bd0->getURI().toString());
+    redirDst1->addGbpRedirectDestToDomainRSrcRoutingDomain(
+        rd0->getURI().toString());
+    redirDst2->setIp("2.2.2.2");
+    redirDst2->setMac(mac2);
+    redirDst2->addGbpRedirectDestToDomainRSrcBridgeDomain(
+        bd0->getURI().toString());
+    redirDst2->addGbpRedirectDestToDomainRSrcRoutingDomain(
+        rd0->getURI().toString());
+    action3 = space->addGbpRedirectAction("action3");
+    action3->addGbpRedirectActionToDestGrpRSrc()->setTargetRedirectDestGroup(
+        redirDstGrp1->getURI());
+    redirDstGrp2 = space->addGbpRedirectDestGroup("redirDstGrp2");
+    redirDst4 = redirDstGrp2->addGbpRedirectDest("redirDst4");
+    opflex::modb::MAC mac3("02:03:04:05:06:07"), mac4("03:04:05:06:07:08");
+    redirDst4->setIp("4.4.4.4");
+    redirDst4->setMac(mac4);
+    redirDst4->addGbpRedirectDestToDomainRSrcBridgeDomain(
+        bd0->getURI().toString());
+    redirDst4->addGbpRedirectDestToDomainRSrcRoutingDomain(
+        rd0->getURI().toString());
+
+    con5 = space->addGbpContract("contract5");
+    con5->addGbpSubject("5_subject1")
+        ->addGbpRule("5_1_rule1")
+        ->setDirection(DirectionEnumT::CONST_IN)
+        .setOrder(100)
+        .addGbpRuleToClassifierRSrc(classifier11->getURI().toString());
+    con5->addGbpSubject("5_subject1")
+        ->addGbpRule("5_1_rule1")
+        ->addGbpRuleToActionRSrcRedirectAction(action3->getURI().toString());
+
+    epg0->addGbpEpGroupToProvContractRSrc(con5->getURI().toString());
+    epg5->addGbpEpGroupToConsContractRSrc(con5->getURI().toString());
+    mutator.commit();
+
+    PolicyManager::uri_set_t egs;
+    WAIT_FOR_DO(egs.size() == 1, 1000, egs.clear();
+                policyMgr.getContractProviders(con5->getURI(), egs));
+    egs.clear();
+    WAIT_FOR_DO(egs.size() == 1, 500, egs.clear();
+                policyMgr.getContractConsumers(con5->getURI(), egs));
+
+    vppManager.contractUpdated(con5->getURI());
+    WAIT_FOR(policyMgr.contractExists(con5->getURI()), 500);
+
+    mac_address_t vmac1("00:01:02:03:04:05");
+    mac_address_t vmac2("01:02:03:04:05:06");
+    gbp_rule::next_hop_t nh1(address::from_string("1.1.1.1"), vmac1, 100, 100);
+    gbp_rule::next_hop_t nh2(address::from_string("2.2.2.2"), vmac2, 100, 100);
+    gbp_rule::next_hops_t nhs({nh1, nh2});
+    gbp_rule::next_hop_set_t next_hop_set(gbp_rule::hash_mode_t::SYMMETRIC,
+                                          nhs);
+    gbp_rule gr(8192, next_hop_set, gbp_rule::action_t::REDIRECT);
+    gbp_contract::gbp_rules_t gbp_rules = {gr};
+
+    gbp_contract::ethertype_set_t e_rules = {ethertype_t::IPV4};
+
+    ACL::action_t act = ACL::action_t::DENY;
+    ACL::l3_rule rule1(8192,
+                       act,
+                       route::prefix_t::ZERO,
+                       route::prefix_t::ZERO,
+                       6,
+                       0,
+                       65535,
+                       80,
+                       65535,
+                       0,
+                       0);
+    ACL::l3_list::rules_t rules1({rule1});
+
+    ACL::l3_list outAcl(con5->getURI().toString() + "out", rules1);
+    WAIT_FOR_MATCH(outAcl);
+
+    gbp_contract gbpc(3850, 2570, outAcl, gbp_rules, e_rules);
+
+    WAIT_FOR1(is_match(gbpc));
 }
 
 BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
