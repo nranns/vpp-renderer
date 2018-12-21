@@ -244,7 +244,7 @@ Uplink::configure(const std::string &fqdn)
      * Configure DHCP on the uplink subinterface
      * We must use the MAC address of the uplink interface as the DHCP client-ID
      */
-    dhcp_client dc(subitf, hostname, m_uplink->l2_address(), true, this);
+    dhcp_client dc(*m_uplink, hostname, m_uplink->l2_address(), true, this);
     OM::write(UPLINK_KEY, dc);
 
     /**

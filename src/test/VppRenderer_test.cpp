@@ -12,6 +12,8 @@
 
 #include <opflexagent/test/ModbFixture.h>
 
+#include <vom/stat_reader.hpp>
+
 #include "VppRenderer.hpp"
 
 BOOST_AUTO_TEST_SUITE(VppRenderer_test)

@@ -17,7 +17,6 @@
 
 #include <vom/hw.hpp>
 #include <vom/interface.hpp>
-#include <vom/stat_reader.hpp>
 
 #include <opflex/ofcore/PeerStatusListener.h>
 
@@ -31,6 +30,10 @@
 #include "VppCrossConnect.hpp"
 #include "VppRuntime.hpp"
 
+namespace VOM
+{
+class stat_reader;
+};
 namespace VPP
 {
 class EndPointManager;

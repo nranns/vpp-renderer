@@ -29,6 +29,8 @@
 #include <vom/gbp_subnet.hpp>
 #include <vom/gbp_vxlan.hpp>
 #include <vom/hw.hpp>
+#include <vom/igmp_binding.hpp>
+#include <vom/igmp_listen.hpp>
 #include <vom/inspect.hpp>
 #include <vom/interface.hpp>
 #include <vom/interface_cmds.hpp>
@@ -610,8 +612,11 @@ BOOST_FIXTURE_TEST_CASE(endpoint_group_add_del, VppStitchedManagerFixture)
     WAIT_FOR_MATCH(v_upl_epg0);
     WAIT_FOR_MATCH(l2_binding(v_upl_epg0, v_bd_epg0));
 
+    gbp_bridge_domain *v_gbd0 = new gbp_bridge_domain(v_bd_epg0, *v_bvi_epg0);
+    WAIT_FOR_MATCH(*v_gbd0);
+
     gbp_endpoint_group *v_epg0 =
-        new gbp_endpoint_group(0xA0A, v_upl_epg0, v_rd, v_bd_epg0);
+        new gbp_endpoint_group(0xA0A, v_upl_epg0, v_rd, *v_gbd0);
     WAIT_FOR_MATCH(*v_epg0);
 
     /*
@@ -677,8 +682,10 @@ BOOST_FIXTURE_TEST_CASE(endpoint_group_add_del, VppStitchedManagerFixture)
     sub_interface v_upl_epg1(v_phy, interface::admin_state_t::UP, 0xA0B);
     WAIT_FOR_MATCH(v_upl_epg1);
     WAIT_FOR_MATCH(l2_binding(v_upl_epg1, v_bd_epg1));
+    gbp_bridge_domain *v_gbd1 = new gbp_bridge_domain(v_bd_epg1, *v_bvi_epg1);
+    WAIT_FOR_MATCH(*v_gbd1);
     gbp_endpoint_group *v_epg1 =
-        new gbp_endpoint_group(0xA0B, v_upl_epg1, v_rd, v_bd_epg1);
+        new gbp_endpoint_group(0xA0B, v_upl_epg1, v_rd, *v_gbd1);
     WAIT_FOR_MATCH(*v_epg1);
 
     WAIT_FOR_MATCH(gbp_subnet(v_rd,
@@ -755,6 +762,11 @@ BOOST_FIXTURE_TEST_CASE(endpoint_group_add_del, VppStitchedManagerFixture)
     WAIT_FOR_NOT_PRESENT(*v_epg1);
     delete v_epg1;
 
+    WAIT_FOR_NOT_PRESENT(*v_gbd0);
+    delete v_gbd0;
+    WAIT_FOR_NOT_PRESENT(*v_gbd1);
+    delete v_gbd1;
+
     WAIT_FOR_NOT_PRESENT(l2_binding(v_upl_epg0, v_bd_epg0));
     WAIT_FOR_NOT_PRESENT(l2_binding(*v_bvi_epg0, v_bd_epg0));
     WAIT_FOR_NOT_PRESENT(*v_bvi_epg0);
@@ -803,8 +815,11 @@ BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppStitchedManagerFixture)
     v_bvi_epg0->set(vMac);
     WAIT_FOR_MATCH(*v_bvi_epg0);
 
+    gbp_bridge_domain *v_gbd0 = new gbp_bridge_domain(v_bd_epg0, *v_bvi_epg0);
+    WAIT_FOR_MATCH(*v_gbd0);
+
     gbp_endpoint_group *v_epg0 =
-        new gbp_endpoint_group(0xA0A, v_upl_epg0, v_rd, v_bd_epg0);
+        new gbp_endpoint_group(0xA0A, v_upl_epg0, v_rd, *v_gbd0);
     WAIT_FOR_MATCH(*v_epg0);
 
     /*
@@ -842,8 +857,10 @@ BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppStitchedManagerFixture)
     sub_interface v_upl_epg1(v_phy, interface::admin_state_t::UP, 0xA0B);
     WAIT_FOR_MATCH(v_upl_epg1);
 
+    gbp_bridge_domain *v_gbd1 = new gbp_bridge_domain(v_bd_epg1, *v_bvi_epg1);
+    WAIT_FOR_MATCH(*v_gbd1);
     gbp_endpoint_group *v_epg1 =
-        new gbp_endpoint_group(0xA0B, v_upl_epg1, v_rd, v_bd_epg1);
+        new gbp_endpoint_group(0xA0B, v_upl_epg1, v_rd, *v_gbd1);
     WAIT_FOR_MATCH(*v_epg1);
 
     WAIT_FOR_MATCH(gbp_endpoint(*v_itf_ep2, getEPIps(ep2), v_mac_ep2, *v_epg1));
@@ -926,6 +943,11 @@ BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppStitchedManagerFixture)
     WAIT_FOR_NOT_PRESENT(*v_epg1);
     delete v_epg1;
 
+    WAIT_FOR_NOT_PRESENT(*v_gbd0);
+    delete v_gbd0;
+    WAIT_FOR_NOT_PRESENT(*v_gbd1);
+    delete v_gbd1;
+
     WAIT_FOR_NOT_PRESENT(l2_binding(v_upl_epg0, v_bd_epg0));
     WAIT_FOR_NOT_PRESENT(l2_binding(*v_bvi_epg0, v_bd_epg0));
     WAIT_FOR_NOT_PRESENT(*v_bvi_epg0);
@@ -984,8 +1006,10 @@ BOOST_FIXTURE_TEST_CASE(endpoint_nat_add_del, VppStitchedManagerFixture)
         "bvi-100", interface::type_t::BVI, interface::admin_state_t::UP, v_rd);
     v_bvi_epg0->set(vMac);
     WAIT_FOR_MATCH(*v_bvi_epg0);
+    gbp_bridge_domain *v_gbd0 = new gbp_bridge_domain(v_bd_epg0, *v_bvi_epg0);
+    WAIT_FOR_MATCH(*v_gbd0);
     gbp_endpoint_group *v_epg0 =
-        new gbp_endpoint_group(0xA0A, v_upl_epg0, v_rd, v_bd_epg0);
+        new gbp_endpoint_group(0xA0A, v_upl_epg0, v_rd, *v_gbd0);
     WAIT_FOR_MATCH(*v_epg0);
 
     sub_interface v_upl_epg1(v_phy, interface::admin_state_t::UP, 0xA0B);
@@ -996,16 +1020,29 @@ BOOST_FIXTURE_TEST_CASE(endpoint_nat_add_del, VppStitchedManagerFixture)
         "bvi-101", interface::type_t::BVI, interface::admin_state_t::UP, v_rd);
     v_bvi_epg1->set(vMac);
     WAIT_FOR_MATCH(*v_bvi_epg1);
+    gbp_bridge_domain *v_gbd1 = new gbp_bridge_domain(v_bd_epg1, *v_bvi_epg1);
+    WAIT_FOR_MATCH(*v_gbd1);
     gbp_endpoint_group *v_epg1 =
-        new gbp_endpoint_group(0xA0B, v_upl_epg1, v_rd, v_bd_epg1);
+        new gbp_endpoint_group(0xA0B, v_upl_epg1, v_rd, *v_gbd1);
     WAIT_FOR_MATCH(*v_epg1);
 
     bridge_domain v_bd_epg_nat(102, bridge_domain::learning_mode_t::OFF);
     WAIT_FOR_MATCH(v_bd_epg_nat);
     sub_interface v_upl_epg_nat(v_phy, interface::admin_state_t::UP, 0x424);
     WAIT_FOR_MATCH(v_upl_epg_nat);
+
+    interface *v_bvi_nat = new interface("bvi-102",
+                                         interface::type_t::BVI,
+                                         interface::admin_state_t::UP,
+                                         v_rd_nat);
+    v_bvi_nat->set(vMac);
+
+    WAIT_FOR_MATCH(*v_bvi_nat);
+    gbp_bridge_domain *v_gbd_nat =
+        new gbp_bridge_domain(v_bd_epg_nat, *v_bvi_nat);
+    WAIT_FOR_MATCH(*v_gbd_nat);
     gbp_endpoint_group *v_epg_nat =
-        new gbp_endpoint_group(0x424, v_upl_epg_nat, v_rd_nat, v_bd_epg_nat);
+        new gbp_endpoint_group(0x424, v_upl_epg_nat, v_rd_nat, *v_gbd_nat);
     WAIT_FOR_MATCH(*v_epg_nat);
     interface *v_bvi_epg_nat = new interface("bvi-102",
                                              interface::type_t::BVI,
@@ -1362,7 +1399,8 @@ BOOST_FIXTURE_TEST_CASE(secGroup, VppStitchedManagerFixture)
     delete v_itf;
 }
 
-BOOST_FIXTURE_TEST_CASE(policy, VppStitchedManagerFixture) {
+BOOST_FIXTURE_TEST_CASE(policy, VppStitchedManagerFixture)
+{
     createObjects();
     createPolicyObjects();
     PolicyManager::uri_set_t egs;
@@ -1386,16 +1424,14 @@ BOOST_FIXTURE_TEST_CASE(policy, VppStitchedManagerFixture) {
     ACL::ethertype_rule_t e1(ethertype_t::FCOE, direction_t::OUTPUT);
     ACL::ethertype_rule_t e2(ethertype_t::FCOE, direction_t::INPUT);
 
-    ACL::acl_ethertype::ethertype_rules_t e_rules1 = {
-        e1, e2};
+    ACL::acl_ethertype::ethertype_rules_t e_rules1 = {e1, e2};
 
     /* add con4 */
     vppManager.contractUpdated(con4->getURI());
     ACL::ethertype_rule_t e3(ethertype_t::IPV4, direction_t::OUTPUT);
     ACL::ethertype_rule_t e4(ethertype_t::IPV4, direction_t::INPUT);
 
-    ACL::acl_ethertype::ethertype_rules_t e_rules2 = {
-        e3, e4};
+    ACL::acl_ethertype::ethertype_rules_t e_rules2 = {e3, e4};
 
     ACL::action_t act = ACL::action_t::PERMIT;
     ACL::l3_rule rule1(8192,
@@ -1417,8 +1453,12 @@ BOOST_FIXTURE_TEST_CASE(policy, VppStitchedManagerFixture) {
     ACL::l3_list outAcl(con4->getURI().toString() + "out", rules1);
     WAIT_FOR_MATCH(outAcl);
 
-    WAIT_FOR1(is_match(gbp_contract(3850, 3851, inAcl)));
-    WAIT_FOR1(is_match(gbp_contract(3851, 3850, outAcl)));
+    gbp_contract::gbp_rules_t grules1 = {{1, gbp_rule::action_t::PERMIT}};
+    gbp_contract::ethertype_set_t allowed1 = {
+        ethertype_t::IPV4, ethertype_t::IPV6, ethertype_t::ARP};
+
+    WAIT_FOR1(is_match(gbp_contract(3850, 3851, inAcl, grules1, allowed1)));
+    WAIT_FOR1(is_match(gbp_contract(3851, 3850, outAcl, grules1, allowed1)));
 
     /* add con1 */
     vppManager.contractUpdated(con1->getURI());
@@ -1427,8 +1467,7 @@ BOOST_FIXTURE_TEST_CASE(policy, VppStitchedManagerFixture) {
     ACL::ethertype_rule_t e7(ethertype_t::IPV4, direction_t::OUTPUT);
     ACL::ethertype_rule_t e8(ethertype_t::IPV4, direction_t::OUTPUT);
 
-    ACL::acl_ethertype::ethertype_rules_t e_rules3 = {
-        e5, e6, e7, e8};
+    ACL::acl_ethertype::ethertype_rules_t e_rules3 = {e5, e6, e7, e8};
 
     ACL::l3_rule rule2(8192,
                        act,
@@ -1468,13 +1507,18 @@ BOOST_FIXTURE_TEST_CASE(policy, VppStitchedManagerFixture) {
     ACL::l3_list outAcl2(con1->getURI().toString() + "out", rules2);
     WAIT_FOR_MATCH(outAcl2);
 
-    WAIT_FOR1(is_match(gbp_contract(3339, 2570, outAcl2)));
-    WAIT_FOR1(is_match(gbp_contract(3339, 2571, outAcl2)));
-    WAIT_FOR1(is_match(gbp_contract(3338, 2570, outAcl2)));
-    WAIT_FOR1(is_match(gbp_contract(3338, 2571, outAcl2)));
+    gbp_contract::gbp_rules_t grules2 = {{1, gbp_rule::action_t::PERMIT}};
+    gbp_contract::ethertype_set_t allowed2 = {
+        ethertype_t::IPV4, ethertype_t::IPV6, ethertype_t::ARP};
+
+    WAIT_FOR1(is_match(gbp_contract(3339, 2570, outAcl2, grules2, allowed2)));
+    WAIT_FOR1(is_match(gbp_contract(3339, 2571, outAcl2, grules2, allowed2)));
+    WAIT_FOR1(is_match(gbp_contract(3338, 2570, outAcl2, grules2, allowed2)));
+    WAIT_FOR1(is_match(gbp_contract(3338, 2571, outAcl2, grules2, allowed2)));
 }
 
-BOOST_FIXTURE_TEST_CASE(policyPortRange, VppStitchedManagerFixture) {
+BOOST_FIXTURE_TEST_CASE(policyPortRange, VppStitchedManagerFixture)
+{
     createObjects();
     createPolicyObjects();
 
@@ -1493,8 +1537,7 @@ BOOST_FIXTURE_TEST_CASE(policyPortRange, VppStitchedManagerFixture) {
     ACL::ethertype_rule_t e2(ethertype_t::IPV4, direction_t::OUTPUT);
     ACL::ethertype_rule_t e3(ethertype_t::IPV4, direction_t::OUTPUT);
 
-    ACL::acl_ethertype::ethertype_rules_t e_rules = {
-        e1, e2, e3};
+    ACL::acl_ethertype::ethertype_rules_t e_rules = {e1, e2, e3};
 
     ACL::action_t act = ACL::action_t::PERMIT;
     ACL::action_t act1 = ACL::action_t::DENY;
@@ -1535,8 +1578,11 @@ BOOST_FIXTURE_TEST_CASE(policyPortRange, VppStitchedManagerFixture) {
 
     ACL::l3_list outAcl(con3->getURI().toString() + "out", rules1);
     WAIT_FOR_MATCH(outAcl);
+    gbp_contract::gbp_rules_t grules = {{1, gbp_rule::action_t::PERMIT}};
+    gbp_contract::ethertype_set_t allowed = {
+        ethertype_t::IPV4, ethertype_t::IPV6, ethertype_t::ARP};
 
-    WAIT_FOR1(is_match(gbp_contract(2571, 2570, outAcl)));
+    WAIT_FOR1(is_match(gbp_contract(2571, 2570, outAcl, grules, allowed)));
 }
 
 BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
@@ -1639,6 +1685,10 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
         host, bd_mcast, 0xAA, v_sub, vxlan_tunnel::mode_t::GBP);
     WAIT_FOR_MATCH(vt_bd_mcast);
     WAIT_FOR_MATCH(l2_binding(vt_bd_mcast, v_bd));
+
+    igmp_binding igmp_b(v_sub);
+    WAIT_FOR_MATCH(igmp_b);
+    WAIT_FOR_MATCH(igmp_listen(igmp_b, bd_mcast.to_v4()));
 
     removeEpg(epg0);
     vppManager.egDomainUpdated(epg0->getURI());

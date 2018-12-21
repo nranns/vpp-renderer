@@ -206,26 +206,16 @@ RouteDomainManager::handle_update(const opflex::modb::URI &uri)
                      * there's a NAT EPG for this subnet. create its RD, BD
                      * and EPG.
                      */
-                    try
+                    std::shared_ptr<VOM::gbp_endpoint_group> nat_epg =
+                        EndPointGroupManager::mk_group(
+                            m_runtime, rd_uuid, natEpg.get());
+
+                    if (nat_epg)
                     {
-                        EndPointGroupManager::ForwardInfo nat_fwd;
-
-                        nat_fwd = EndPointGroupManager::get_fwd_info(
-                            m_runtime, natEpg.get());
-
-                        VOM::route_domain nat_rd(nat_fwd.rdId);
-                        VOM::OM::write(rd_uuid, nat_rd);
-                        VOM::bridge_domain nat_bd(nat_fwd.bdId);
-                        VOM::OM::write(rd_uuid, nat_bd);
-
-                        std::shared_ptr<VOM::interface> encap_link =
-                            m_runtime.uplink.mk_interface(rd_uuid,
-                                                          natEpgVnid.get());
-
-                        gbp_endpoint_group nat_epg(
-                            natEpgVnid.get(), *encap_link, nat_rd, nat_bd);
-                        OM::write(rd_uuid, nat_epg);
-
+                        std::shared_ptr<bridge_domain> nat_bd =
+                            nat_epg->get_bridge_domain()->get_bridge_domain();
+                        std::shared_ptr<route_domain> nat_rd =
+                            nat_epg->get_route_domain()->get_route_domain();
                         /*
                          * The external-subnet is a route via the NAT-EPG's
                          recirc.
@@ -239,10 +229,10 @@ RouteDomainManager::handle_update(const opflex::modb::URI &uri)
                             "recirc-" + std::to_string(natEpgVnid.get()),
                             interface::type_t::LOOPBACK,
                             VOM::interface::admin_state_t::UP,
-                            nat_rd);
+                            *nat_rd);
                         OM::write(rd_uuid, nat_recirc_itf);
 
-                        l2_binding nat_recirc_l2b(nat_recirc_itf, nat_bd);
+                        l2_binding nat_recirc_l2b(nat_recirc_itf, *nat_bd);
                         OM::write(rd_uuid, nat_recirc_l2b);
 
                         nat_binding nat_recirc_nb4(
@@ -261,19 +251,15 @@ RouteDomainManager::handle_update(const opflex::modb::URI &uri)
 
                         gbp_recirc nat_grecirc(nat_recirc_itf,
                                                gbp_recirc::type_t::EXTERNAL,
-                                               nat_epg);
+                                               *nat_epg);
                         OM::write(rd_uuid, nat_grecirc);
 
                         /* add the route for the ext-subnet */
                         gbp_subnet gs(rd,
                                       {addr, extSub->getPrefixLen().get()},
                                       nat_grecirc,
-                                      nat_epg);
+                                      *nat_epg);
                         OM::write(rd_uuid, gs);
-                    }
-                    catch (EndPointGroupManager::NoFowardInfoException &nofwd)
-                    {
-                        VLOGD << "EndpointGroup - no fwding " << uri;
                     }
                 }
                 else

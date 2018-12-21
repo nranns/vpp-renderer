@@ -54,7 +54,8 @@ VppManager::VppManager(opflexagent::Agent &agent_,
 void
 VppManager::start()
 {
-    VLOGI << "start vpp manager";
+    VLOGI << "start vpp manager; mode:"
+          << (int)m_runtime.agent.getRendererForwardingMode();
 
     /*
      * create the update delegators
@@ -137,7 +138,7 @@ VppManager::handleInitConnection()
      */
     m_stats_timer.reset(
         new boost::asio::deadline_timer(m_runtime.agent.getAgentIOService()));
-    m_stats_timer->expires_from_now(boost::posix_time::seconds(3));
+    m_stats_timer->expires_from_now(boost::posix_time::seconds(10));
     m_stats_timer->async_wait(
         bind(&VppManager::handleHWStatsTimer, this, error));
 }
@@ -227,13 +228,13 @@ VppManager::handleHWStatsTimer(const boost::system::error_code &ec)
 {
     if (stopping || ec) return;
 
-    VLOGI << "stats reading";
+    VLOGD << "stats reading";
 
     VOM::HW::read_stats();
 
     m_stats_timer.reset(
         new boost::asio::deadline_timer(m_runtime.agent.getAgentIOService()));
-    m_stats_timer->expires_from_now(boost::posix_time::seconds(3));
+    m_stats_timer->expires_from_now(boost::posix_time::seconds(10));
     m_stats_timer->async_wait(
         bind(&VppManager::handleHWStatsTimer, this, error));
 }

@@ -12,6 +12,8 @@
 
 #include <opflexagent/logging.h>
 
+#include <vom/stat_reader.hpp>
+
 #include "VppLogHandler.hpp"
 #include "VppRenderer.hpp"
 

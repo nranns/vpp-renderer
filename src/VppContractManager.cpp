@@ -171,8 +171,8 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
         if (etherType != modelgbp::l2::EtherTypeEnumT::CONST_IPV4 &&
             etherType != modelgbp::l2::EtherTypeEnumT::CONST_IPV6)
         {
-            VLOGW << "Contract for Protocol "
-                  << etherType.to_string() << " ,(IPv4/IPv6)"
+            VLOGW << "Contract for Protocol " << etherType.to_string()
+                  << " ,(IPv4/IPv6)"
                   << " are allowed";
             continue;
         }
@@ -263,27 +263,28 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
             if (!ethertype_rules.empty())
             {
                 for (auto &e : ethertype_rules)
-                     VLOGD << e.to_string();
+                    VLOGD << e.to_string();
             }
+            gbp_contract::ethertype_set_t allowed_ethertypes = {
+                ethertype_t::IPV4, ethertype_t::IPV6, ethertype_t::ARP};
+
             if (!in_rules.empty())
             {
                 ACL::l3_list inAcl(uuid + "in", in_rules);
                 OM::write(uuid, inAcl);
 
-                gbp_contract gbpc_in(pvnid, cvnid, inAcl);
+                gbp_contract gbpc_in(
+                    pvnid, cvnid, inAcl, gbp_rules, allowed_ethertypes);
                 OM::write(uuid, gbpc_in);
-
-                gbpc_in.set_gbp_rules(gbp_rules);
             }
             if (!out_rules.empty())
             {
                 ACL::l3_list outAcl(uuid + "out", out_rules);
                 OM::write(uuid, outAcl);
 
-                gbp_contract gbpc_out(cvnid, pvnid, outAcl);
+                gbp_contract gbpc_out(
+                    cvnid, pvnid, outAcl, gbp_rules, allowed_ethertypes);
                 OM::write(uuid, gbpc_out);
-
-                gbpc_out.set_gbp_rules(gbp_rules);
             }
         }
     }

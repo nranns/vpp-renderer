@@ -21,6 +21,8 @@
 #include <vom/gbp_endpoint_group.hpp>
 #include <vom/gbp_subnet.hpp>
 #include <vom/gbp_vxlan.hpp>
+#include <vom/igmp_binding.hpp>
+#include <vom/igmp_listen.hpp>
 #include <vom/l2_binding.hpp>
 #include <vom/l3_binding.hpp>
 #include <vom/nat_binding.hpp>
@@ -188,6 +190,15 @@ EndPointGroupManager::mk_group(Runtime &runtime,
 
                     l2_binding l2_vxbd(vt_bd_mcast, bd);
                     OM::write(key, l2_vxbd);
+
+                    /*
+                     * join the group on the uplink interface
+                     */
+                    igmp_binding igmp_b(*runtime.uplink.local_interface());
+                    OM::write(key, igmp_b);
+
+                    igmp_listen igmp_l(igmp_b, dst.to_v4());
+                    OM::write(key, igmp_l);
                 }
             }
             if (rd_vnid)
@@ -223,8 +234,11 @@ EndPointGroupManager::mk_group(Runtime &runtime,
             gbp_bridge_domain gbd(bd, bvi);
             OM::write(key, gbd);
 
+            gbp_route_domain grd(rd);
+            OM::write(key, grd);
+
             gepg = std::make_shared<gbp_endpoint_group>(
-                fwd.vnid, *encap_link, rd, gbd);
+                fwd.vnid, *encap_link, grd, gbd);
         }
         /*
          * GBP Endpoint Group
