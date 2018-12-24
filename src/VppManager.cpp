@@ -138,7 +138,7 @@ VppManager::handleInitConnection()
      */
     m_stats_timer.reset(
         new boost::asio::deadline_timer(m_runtime.agent.getAgentIOService()));
-    m_stats_timer->expires_from_now(boost::posix_time::seconds(10));
+    m_stats_timer->expires_from_now(boost::posix_time::seconds(5));
     m_stats_timer->async_wait(
         bind(&VppManager::handleHWStatsTimer, this, error));
 }
@@ -234,7 +234,7 @@ VppManager::handleHWStatsTimer(const boost::system::error_code &ec)
 
     m_stats_timer.reset(
         new boost::asio::deadline_timer(m_runtime.agent.getAgentIOService()));
-    m_stats_timer->expires_from_now(boost::posix_time::seconds(10));
+    m_stats_timer->expires_from_now(boost::posix_time::seconds(5));
     m_stats_timer->async_wait(
         bind(&VppManager::handleHWStatsTimer, this, error));
 }

@@ -244,7 +244,7 @@ Uplink::configure(const std::string &fqdn)
      * Configure DHCP on the uplink subinterface
      * We must use the MAC address of the uplink interface as the DHCP client-ID
      */
-    dhcp_client dc(*m_uplink, hostname, m_uplink->l2_address(), true, this);
+    dhcp_client dc(*m_subitf, hostname, m_uplink->l2_address(), true, this);
     OM::write(UPLINK_KEY, dc);
 
     /**
@@ -259,6 +259,7 @@ Uplink::configure(const std::string &fqdn)
         LOG(opflexagent::INFO) << "DHCP present: " << lease->to_string();
         configure_tap(lease->host_prefix);
         m_vxlan.src = lease->host_prefix.address();
+        m_pfx = lease->host_prefix;
     }
     else
     {
