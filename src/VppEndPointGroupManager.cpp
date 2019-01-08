@@ -192,6 +192,19 @@ EndPointGroupManager::mk_group(Runtime &runtime,
                     OM::write(key, l2_vxbd);
 
                     /*
+                     * add the mcast group to accept via the uplink and
+                     * forward locally.
+                     */
+                    route::path via_uplink(*runtime.uplink.local_interface(),
+                                           nh_proto_t::IPV4);
+                    route::ip_mroute mroute({dst.to_v4(), 32});
+
+                    mroute.add(via_uplink, route::itf_flags_t::ACCEPT);
+                    mroute.add({route::path::special_t::LOCAL},
+                               route::itf_flags_t::FORWARD);
+                    OM::write(key, mroute);
+
+                    /*
                      * join the group on the uplink interface
                      */
                     igmp_binding igmp_b(*runtime.uplink.local_interface());
