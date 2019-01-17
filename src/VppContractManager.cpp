@@ -9,7 +9,7 @@
 
 #include <opflexagent/PolicyManager.h>
 
-#include <modelgbp/gbp/HashProfOptionEnumT.hpp>
+#include <modelgbp/gbp/HashingAlgorithmEnumT.hpp>
 #include <modelgbp/gbp/RoutingDomain.hpp>
 
 #include <modelgbp/gbp/ConnTrackEnumT.hpp>
@@ -204,11 +204,11 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
         {
             opflexagent::PolicyManager::redir_dest_list_t redirList;
             gbp_rule::next_hops_t nhs;
-            uint8_t hashOpt = 0, hashParam = 0;
+            uint8_t hashAlgo = 0, resilientHashEnabled = 0;
             boost::optional<opflex::modb::URI> destGrpUri =
                 rule->getRedirectDestGrpURI();
             polMgr.getPolicyDestGroup(
-                destGrpUri.get(), redirList, hashOpt, hashParam);
+                destGrpUri.get(), redirList, hashAlgo, resilientHashEnabled);
 
             for (auto dst : redirList)
             {
@@ -222,7 +222,8 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
                 nhs.insert(nh);
             }
 
-            if (hashOpt == modelgbp::gbp::HashProfOptionEnumT::CONST_SYMMETRIC)
+            if (hashAlgo ==
+                modelgbp::gbp::HashingAlgorithmEnumT::CONST_SYMMETRIC)
             {
                 gbp_rule::next_hop_set_t next_hop_set(
                     gbp_rule::hash_mode_t::SYMMETRIC, nhs);
@@ -231,7 +232,8 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
                             gbp_rule::action_t::REDIRECT);
                 gbp_rules.insert(gr);
             }
-            else if (hashOpt == modelgbp::gbp::HashProfOptionEnumT::CONST_DSTIP)
+            else if (hashAlgo ==
+                     modelgbp::gbp::HashingAlgorithmEnumT::CONST_DSTIP)
             {
                 gbp_rule::next_hop_set_t next_hop_set(
                     gbp_rule::hash_mode_t::DST_IP, nhs);
@@ -240,7 +242,8 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
                             gbp_rule::action_t::REDIRECT);
                 gbp_rules.insert(gr);
             }
-            else if (hashOpt == modelgbp::gbp::HashProfOptionEnumT::CONST_SRCIP)
+            else if (hashAlgo ==
+                     modelgbp::gbp::HashingAlgorithmEnumT::CONST_SRCIP)
             {
                 gbp_rule::next_hop_set_t next_hop_set(
                     gbp_rule::hash_mode_t::SRC_IP, nhs);

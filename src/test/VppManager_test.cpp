@@ -15,7 +15,7 @@
 #include <boost/optional.hpp>
 #include <boost/test/unit_test.hpp>
 
-#include <modelgbp/gbp/HashProfOptionEnumT.hpp>
+#include <modelgbp/gbp/HashingAlgorithmEnumT.hpp>
 #include <modelgbp/gbp/SecGroup.hpp>
 
 #include <vom/acl_ethertype.hpp>
@@ -1414,16 +1414,9 @@ BOOST_FIXTURE_TEST_CASE(policy, VppStitchedManagerFixture)
 
     WAIT_FOR_DO(egs.size() == 2, 500, egs.clear();
                 policyMgr.getContractIntra(con2->getURI(), egs));
-    egs.clear();
-
-    WAIT_FOR_DO(egs.size() == 1, 1000, egs.clear();
-                policyMgr.getContractProviders(con4->getURI(), egs));
 
     /* add con2 */
     vppManager.contractUpdated(con2->getURI());
-
-    /* add con4 */
-    vppManager.contractUpdated(con4->getURI());
 
     ACL::action_t act = ACL::action_t::PERMIT;
     ACL::l3_rule rule1(8192,
@@ -1439,18 +1432,9 @@ BOOST_FIXTURE_TEST_CASE(policy, VppStitchedManagerFixture)
                        0);
     ACL::l3_list::rules_t rules1({rule1});
 
-    ACL::l3_list inAcl(con4->getURI().toString() + "in", rules1);
-    WAIT_FOR_MATCH(inAcl);
-
-    ACL::l3_list outAcl(con4->getURI().toString() + "out", rules1);
-    WAIT_FOR_MATCH(outAcl);
-
     gbp_contract::gbp_rules_t grules1 = {{8192, gbp_rule::action_t::PERMIT}};
     gbp_contract::ethertype_set_t allowed1 = {ethertype_t::IPV4,
                                               ethertype_t::FCOE};
-
-    WAIT_FOR1(is_match(gbp_contract(3850, 3851, inAcl, grules1, allowed1)));
-    WAIT_FOR1(is_match(gbp_contract(3851, 3850, outAcl, grules1, allowed1)));
 
     /* add con1 */
     vppManager.contractUpdated(con1->getURI());
@@ -1604,8 +1588,8 @@ BOOST_FIXTURE_TEST_CASE(policyRedirect, VppTransportManagerFixture)
         .setDFromPort(80);
 
     redirDstGrp1 = space->addGbpRedirectDestGroup("redirDstGrp1");
-    redirDstGrp1->setHashOpt(HashProfOptionEnumT::CONST_SYMMETRIC);
-    redirDstGrp1->setHashParam(1);
+    redirDstGrp1->setHashAlgo(HashingAlgorithmEnumT::CONST_SYMMETRIC);
+    redirDstGrp1->setResilientHashEnabled(1);
     redirDst1 = redirDstGrp1->addGbpRedirectDest("redirDst1");
     redirDst2 = redirDstGrp1->addGbpRedirectDest("redirDst2");
     opflex::modb::MAC mac1("00:01:02:03:04:05"), mac2("01:02:03:04:05:06");
@@ -1645,7 +1629,7 @@ BOOST_FIXTURE_TEST_CASE(policyRedirect, VppTransportManagerFixture)
         ->addGbpRuleToActionRSrcRedirectAction(action3->getURI().toString());
 
     epg0->addGbpEpGroupToProvContractRSrc(con5->getURI().toString());
-    epg5->addGbpEpGroupToConsContractRSrc(con5->getURI().toString());
+    epg1->addGbpEpGroupToConsContractRSrc(con5->getURI().toString());
     mutator.commit();
 
     PolicyManager::uri_set_t egs;
@@ -1687,7 +1671,7 @@ BOOST_FIXTURE_TEST_CASE(policyRedirect, VppTransportManagerFixture)
     ACL::l3_list outAcl(con5->getURI().toString() + "out", rules1);
     WAIT_FOR_MATCH(outAcl);
 
-    gbp_contract gbpc(3850, 2570, outAcl, gbp_rules, e_rules);
+    gbp_contract gbpc(2571, 2570, outAcl, gbp_rules, e_rules);
 
     WAIT_FOR1(is_match(gbpc));
 }
