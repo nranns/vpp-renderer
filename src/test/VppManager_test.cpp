@@ -16,6 +16,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include <modelgbp/gbp/HashingAlgorithmEnumT.hpp>
+#include <modelgbp/gbp/L3IfTypeEnumT.hpp>
 #include <modelgbp/gbp/SecGroup.hpp>
 
 #include <vom/acl_ethertype.hpp>
@@ -235,7 +236,7 @@ print_obj(const T &obj, const std::string &s)
 #define WAIT_FOR_MATCH(obj)                                                    \
     WAIT_FOR_ONFAIL(is_match(obj), 100, print_obj(obj, "Not Found: "))
 #define WAIT_FOR_NOT_PRESENT(obj)                                              \
-    WAIT_FOR_ONFAIL(!is_present(obj), 100, print_obj(obj, "Still present: "))
+    WAIT_FOR_ONFAIL(!is_present(obj), 10000, print_obj(obj, "Still present: "))
 
 class VppManagerFixture : public ModbFixture
 {
@@ -243,8 +244,8 @@ class VppManagerFixture : public ModbFixture
     typedef opflex::ofcore::OFConstants::OpflexElementMode opflex_elem_t;
 
   public:
-    VppManagerFixture(opflex_elem_t mode = opflex_elem_t::INVALID_MODE)
-        : ModbFixture(mode)
+    VppManagerFixture()
+        : ModbFixture()
         , vMac{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
         , policyMgr(agent.getPolicyManager())
         , vppQ()
@@ -345,6 +346,48 @@ class VppManagerFixture : public ModbFixture
         epg2 = space->addGbpEpGroup("epg2");
         epg3 = space->addGbpEpGroup("epg3");
 
+        /*
+         * External EP
+         */
+        bd2 = space->addGbpBridgeDomain("bd2");
+        bd2->addGbpeInstContext()->setEncapId(0xA2);
+        bd2->addGbpeInstContext()->setMulticastGroupIP("224.1.2.2");
+
+        epg2->addGbpEpGroupToNetworkRSrc()->setTargetBridgeDomain(
+            bd2->getURI());
+        epg2->addGbpeInstContext()->setEncapId(0xACC);
+
+        /* ext_ep0.reset(new Endpoint("0-0-e-0")); */
+        /* ext_ep0->setMAC(opflex::modb::MAC("00:00:00:00:0E:00")); */
+        /* ext_ep0->addIP("10.30.0.1"); */
+        /* ext_ep0->setInterfaceName("port-e-00"); */
+        /* ext_ep0->setEgURI(epg2->getURI()); */
+        /* epSrc.updateEndpoint(*ext_ep0); */
+
+        ext_rd0 = space->addGbpRoutingDomain("ext_rd0");
+        ext_rd0->addGbpeInstContext()->setEncapId(1122);
+        ext_bd0 = space->addGbpExternalL3BridgeDomain("ext_bd0");
+        ext_bd0->addGbpeInstContext()->setEncapId(1133);
+        ext_bd0->addGbpExternalL3BridgeDomainToVrfRSrc()->
+            setTargetRoutingDomain(ext_rd0->getURI());
+        ext_node0 = space->addGbpExternalNode("ext_node0");
+        ext_itf0 = space->addGbpExternalInterface("ext_int0");
+        ext_itf0->setAddress("100.100.100.0");
+        ext_itf0->setPrefixLen(24);
+        ext_itf0->setEncap(1144);
+        ext_itf0->setIfInstT(L3IfTypeEnumT::CONST_EXTSVI);
+        ext_itf0->addGbpExternalInterfaceToExtl3bdRSrc()->
+            setTargetExternalL3BridgeDomain(ext_bd0->getURI());
+
+        static_route1 = ext_node0->addGbpStaticRoute("static_route1");
+        static_route1->addGbpStaticRouteToVrfRSrc()->
+            setTargetRoutingDomain(ext_rd0->getURI());
+        static_route1->setAddress("101.101.0.0");
+        static_route1->setPrefixLen(16);
+        static_route1->addGbpStaticNextHop("100.100.100.2");
+        static_nh1 = static_route1->addGbpStaticNextHop("100.100.100.3");
+        static_route1->addGbpStaticNextHop("100.100.100.4");
+
         mutator.commit();
 
         /* create endpoints */
@@ -387,6 +430,7 @@ class VppManagerFixture : public ModbFixture
         ep4->setAccessIfaceVlan(1000);
         ep4->setEgURI(epg1->getURI());
         epSrc.updateEndpoint(*ep4);
+
     }
 
     void
@@ -492,10 +536,16 @@ class VppManagerFixture : public ModbFixture
         return ipAddresses;
     }
 
-    std::shared_ptr<Endpoint> ep5;
+    std::shared_ptr<Endpoint> ep5, ext_ep0;
+    std::shared_ptr<modelgbp::gbp::BridgeDomain> bd2;
     std::shared_ptr<modelgbp::gbp::EpGroup> epg_nat;
     std::shared_ptr<modelgbp::gbp::L3ExternalNetwork> l3ext_net;
-    std::shared_ptr<modelgbp::gbp::RoutingDomain> rd_ext;
+    std::shared_ptr<modelgbp::gbp::RoutingDomain> rd_ext, ext_rd0;
+    std::shared_ptr<modelgbp::gbp::ExternalNode> ext_node0;
+    std::shared_ptr<modelgbp::gbp::ExternalL3BridgeDomain> ext_bd0;
+    std::shared_ptr<modelgbp::gbp::ExternalInterface> ext_itf0;
+    std::shared_ptr<modelgbp::gbp::StaticRoute> static_route1;
+    std::shared_ptr<modelgbp::gbp::StaticNextHop> static_nh1;
 
     mac_address_t vMac;
     PolicyManager &policyMgr;
@@ -521,6 +571,7 @@ class VppStitchedManagerFixture : public VppManagerFixture
     VppStitchedManagerFixture()
     {
         vppManager.start();
+        vppManager.registerModbListeners();
     }
     ~VppStitchedManagerFixture()
     {
@@ -531,9 +582,11 @@ class VppTransportManagerFixture : public VppManagerFixture
 {
   public:
     VppTransportManagerFixture()
-        : VppManagerFixture(opflex_elem_t::TRANSPORT_MODE)
+        : VppManagerFixture()
     {
+        framework.setElementMode(opflex::ofcore::OFConstants::OpflexElementMode::TRANSPORT_MODE);
         vppManager.start();
+        vppManager.registerModbListeners();
     }
     ~VppTransportManagerFixture()
     {
@@ -1800,6 +1853,42 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
     delete vt_v4;
     delete vt_v6;
     delete v_bvi;
+}
+
+BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
+{
+    vppManager.externalInterfaceUpdated(ext_itf0->getURI());
+}
+
+BOOST_FIXTURE_TEST_CASE(static_route, VppTransportManagerFixture)
+{
+    vppManager.staticRouteUpdated(static_route1->getURI());
+
+    route_domain v_rd(100);
+    WAIT_FOR_MATCH(v_rd);
+
+    route::prefix_t pfx(boost::asio::ip::address::from_string("101.101.0.0"), 16);
+
+    boost::asio::ip::address nh1, nh2, nh3;
+    nh1 = boost::asio::ip::address::from_string("100.100.100.2");
+    nh2 = boost::asio::ip::address::from_string("100.100.100.3");
+    nh3 = boost::asio::ip::address::from_string("100.100.100.4");
+
+    route::ip_route v_route(v_rd, pfx);
+    v_route.add({v_rd, nh1});
+    v_route.add({v_rd, nh2});
+    v_route.add({v_rd, nh3});
+
+    WAIT_FOR_MATCH(v_route);
+
+    inspector.handle_input("all", std::cout);
+    inspector.handle_input("help", std::cout);
+
+    opflex::modb::Mutator m1(framework, policyOwner);
+    static_route1->remove();
+    m1.commit();
+
+    WAIT_FOR_NOT_PRESENT(v_route);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

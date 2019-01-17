@@ -22,8 +22,9 @@
 #include "VppIdGen.hpp"
 #include "VppLog.hpp"
 #include "VppManager.hpp"
-#include "VppRouteDomainManager.hpp"
+#include "VppRouteManager.hpp"
 #include "VppSecurityGroupManager.hpp"
+#include "VppExtItfManager.hpp"
 
 #include <opflexagent/EndpointManager.h>
 
@@ -51,6 +52,11 @@ VppManager::VppManager(opflexagent::Agent &agent_,
     m_runtime.agent.getFramework().registerPeerStatusListener(this);
 }
 
+VppManager::~VppManager()
+{
+    VLOGE << "VppManager exiting";
+}
+
 void
 VppManager::start()
 {
@@ -64,7 +70,8 @@ VppManager::start()
     m_epgm = std::make_shared<EndPointGroupManager>(m_runtime);
     m_sgm = std::make_shared<SecurityGroupManager>(m_runtime.agent);
     m_cm = std::make_shared<ContractManager>(m_runtime.agent, m_runtime.id_gen);
-    m_rdm = std::make_shared<RouteDomainManager>(m_runtime);
+    m_rdm = std::make_shared<RouteManager>(m_runtime);
+    m_eim = std::make_shared<ExtItfManager>(m_runtime);
 
     initPlatformConfig();
 
@@ -312,6 +319,24 @@ VppManager::endpointUpdated(const std::string &uuid)
 }
 
 void
+VppManager::externalEndpointUpdated(const std::string &uuid)
+{
+    if (stopping) return;
+
+    m_task_queue.dispatch(uuid,
+                          bind(&EndPointManager::handle_external_update, m_epm, uuid));
+}
+
+void
+VppManager::remoteEndpointUpdated(const std::string &uuid)
+{
+    if (stopping) return;
+
+    m_task_queue.dispatch(uuid,
+                          bind(&EndPointManager::handle_remote_update, m_epm, uuid));
+}
+
+void
 VppManager::serviceUpdated(const std::string &uuid)
 {
     if (stopping) return;
@@ -324,7 +349,7 @@ VppManager::rdConfigUpdated(const opflex::modb::URI &rdURI)
 {
     m_task_queue.dispatch(
         rdURI.toString(),
-        bind(&RouteDomainManager::handle_update, m_rdm, rdURI));
+        bind(&RouteManager::handle_domain_update, m_rdm, rdURI));
 }
 
 void
@@ -375,6 +400,33 @@ VppManager::contractUpdated(const opflex::modb::URI &contractURI)
 }
 
 void
+VppManager::externalInterfaceUpdated(const opflex::modb::URI &uri)
+{
+    if (stopping) return;
+    m_task_queue.dispatch(
+        uri.toString(),
+        bind(&ExtItfManager::handle_update, m_eim, uri));
+}
+
+void
+VppManager::staticRouteUpdated(const opflex::modb::URI &uri)
+{
+    if (stopping) return;
+    m_task_queue.dispatch(
+        uri.toString(),
+        bind(&RouteManager::handle_static_update, m_rdm, uri));
+}
+
+void
+VppManager::remoteRouteUpdated(const opflex::modb::URI &uri)
+{
+    if (stopping) return;
+    m_task_queue.dispatch(
+        uri.toString(),
+        bind(&RouteManager::handle_remote_update, m_rdm, uri));
+}
+
+void
 VppManager::handle_interface_event(std::vector<VOM::interface::event> e)
 {
     if (stopping) return;
@@ -418,7 +470,7 @@ VppManager::handleDomainUpdate(opflex::modb::class_id_t cid,
     switch (cid)
     {
     case modelgbp::gbp::RoutingDomain::CLASS_ID:
-        m_rdm->handle_update(domURI);
+        m_rdm->handle_domain_update(domURI);
         break;
     case modelgbp::gbp::Subnet::CLASS_ID:
         if (!modelgbp::gbp::Subnet::resolve(m_runtime.agent.getFramework(),

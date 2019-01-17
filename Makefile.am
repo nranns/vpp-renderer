@@ -41,12 +41,13 @@ librenderer_vpp_la_SOURCES = \
 	src/VppCrossConnect.cpp \
 	src/VppEndPointGroupManager.cpp \
 	src/VppEndPointManager.cpp \
+	src/VppExtItfManager.cpp \
         src/VppIdGen.cpp \
         src/VppInspect.cpp \
         src/VppLogHandler.cpp \
         src/VppManager.cpp \
 	src/VppRenderer.cpp \
-        src/VppRouteDomainManager.cpp \
+        src/VppRouteManager.cpp \
         src/VppSecurityGroupManager.cpp \
         src/VppSpineProxy.cpp \
         src/VppUplink.cpp \

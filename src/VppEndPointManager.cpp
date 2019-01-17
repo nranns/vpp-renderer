@@ -24,6 +24,7 @@
 #include <vom/gbp_endpoint_group.hpp>
 #include <vom/gbp_recirc.hpp>
 #include <vom/gbp_subnet.hpp>
+#include <vom/gbp_ext_itf.hpp>
 #include <vom/l2_binding.hpp>
 #include <vom/l3_binding.hpp>
 #include <vom/nat_binding.hpp>
@@ -292,7 +293,7 @@ EndPointManager::handle_interface_stat(const interface &itf)
 }
 
 void
-EndPointManager::handle_update(const std::string &uuid)
+EndPointManager::handle_update_i(const std::string &uuid, bool is_external)
 {
     /*
      * This is an update to all the state related to this endpoint.
@@ -320,6 +321,12 @@ EndPointManager::handle_update(const std::string &uuid)
     {
         // can't do much without EPG
         VLOGD << "Endpoint - no EPG " << uuid;
+        return;
+    }
+
+    if (is_external && !epWrapper->isExternal())
+    {
+        VLOGE << "Endpoint - not external " << uuid;
         return;
     }
 
@@ -689,12 +696,37 @@ EndPointManager::handle_update(const std::string &uuid)
         {
             VLOGD << "Endpoint - no interface " << uuid;
         }
+
+        /*
+         * If the EP is external then its EPG's BD interface is an external interface
+         */
+        if (is_external)
+        {
+            gbp_ext_itf gei(*bvi, *gepg->get_bridge_domain(), *gepg->get_route_domain());
+            OM::write(uuid, gei);
+        }
     }
 
     /*
      * That's all folks ... destructor of mark_n_sweep calls the
      * sweep for the stale state
      */
+}
+void
+EndPointManager::handle_update(const std::string &uuid)
+{
+    handle_update_i(uuid, false);
+}
+void
+EndPointManager::handle_external_update(const std::string &uuid)
+{
+    handle_update_i(uuid, true);
+}
+
+void
+EndPointManager::handle_remote_update(const std::string &uuid)
+{
+    VLOGE << "Endpoint - remote not supported: " << uuid;
 }
 
 }; // namespace VPP

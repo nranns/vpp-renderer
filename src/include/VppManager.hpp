@@ -40,7 +40,8 @@ class EndPointManager;
 class EndPointGroupManager;
 class SecurityGroupManager;
 class ContractManager;
-class RouteDomainManager;
+class RouteManager;
+class ExtItfManager;
 
 /**
  * @brief Makes changes to VPP to be in sync with state of MOs.
@@ -67,7 +68,7 @@ class VppManager : public opflexagent::EndpointListener,
                VOM::HW::cmd_q *q,
                VOM::stat_reader *sr);
 
-    ~VppManager() = default;
+    ~VppManager();
 
     /**
      * Module start
@@ -98,6 +99,9 @@ class VppManager : public opflexagent::EndpointListener,
 
     /* Interface: EndpointListener */
     virtual void endpointUpdated(const std::string &uuid);
+    virtual void externalEndpointUpdated(const std::string &uuid);
+    virtual void remoteEndpointUpdated(const std::string& uuid);
+    virtual void secGroupSetUpdated(const EndpointListener::uri_set_t &secGrps);
 
     /* Interface: ServiceListener */
     virtual void serviceUpdated(const std::string &uuid);
@@ -111,8 +115,9 @@ class VppManager : public opflexagent::EndpointListener,
                                const opflex::modb::URI &domURI);
     virtual void contractUpdated(const opflex::modb::URI &contractURI);
     virtual void configUpdated(const opflex::modb::URI &configURI);
-
-    virtual void secGroupSetUpdated(const EndpointListener::uri_set_t &secGrps);
+    virtual void externalInterfaceUpdated(const opflex::modb::URI&);
+    virtual void staticRouteUpdated(const opflex::modb::URI&);
+    virtual void remoteRouteUpdated(const opflex::modb::URI&);
     virtual void secGroupUpdated(const opflex::modb::URI &);
 
     /* Interface: PortStatusListener */
@@ -261,13 +266,14 @@ class VppManager : public opflexagent::EndpointListener,
     void initPlatformConfig();
 
     /**
-     * objects to delegate task queu events to
+     * objects to delegate task queue events to
      */
     std::shared_ptr<EndPointManager> m_epm;
     std::shared_ptr<EndPointGroupManager> m_epgm;
     std::shared_ptr<SecurityGroupManager> m_sgm;
     std::shared_ptr<ContractManager> m_cm;
-    std::shared_ptr<RouteDomainManager> m_rdm;
+    std::shared_ptr<RouteManager> m_rdm;
+    std::shared_ptr<ExtItfManager> m_eim;
 };
 
 } // namespace opflexagent

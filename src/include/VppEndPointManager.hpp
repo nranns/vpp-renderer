@@ -33,6 +33,8 @@ class EndPointManager : public VOM::interface::stat_listener
     virtual ~EndPointManager();
 
     void handle_update(const std::string &uuid);
+    void handle_external_update(const std::string &uuid);
+    void handle_remote_update(const std::string &uuid);
 
     static std::string get_ep_interface_name(
         const opflexagent::Endpoint &ep) throw(NoEpInterfaceException);
@@ -40,6 +42,8 @@ class EndPointManager : public VOM::interface::stat_listener
     virtual void handle_interface_stat(const interface &);
 
   private:
+    void handle_update_i(const std::string &uuid, bool is_external);
+
     /**
      * Event listener override to get Interface stats
      */

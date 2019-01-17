@@ -7,8 +7,8 @@
  * and is available at http://www.eclipse.org/legal/epl-v10.html
  */
 
-#ifndef __VPP_ROUTE_DOMAIN_MANAGER_H__
-#define __VPP_ROUTE_DOMAIN_MANAGER_H__
+#ifndef __VPP_EXT_ITF_MANAGER_H__
+#define __VPP_EXT_ITF_MANAGER_H__
 
 #include <opflexagent/Agent.h>
 
@@ -16,10 +16,10 @@
 
 namespace VPP
 {
-class RouteDomainManager
+class ExtItfManager
 {
   public:
-    RouteDomainManager(Runtime &runtime);
+    ExtItfManager(Runtime &runtime);
 
     void handle_update(const opflex::modb::URI &uri);
 

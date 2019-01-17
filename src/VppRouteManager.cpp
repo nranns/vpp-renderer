@@ -12,6 +12,7 @@
 #include <modelgbp/gbp/L3ExternalDomain.hpp>
 #include <modelgbp/gbp/L3ExternalNetwork.hpp>
 #include <modelgbp/gbp/RoutingDomain.hpp>
+#include <modelgbp/gbp/StaticRoute.hpp>
 
 #include <opflexagent/RDConfig.h>
 
@@ -33,13 +34,13 @@
 
 #include "VppEndPointGroupManager.hpp"
 #include "VppLog.hpp"
-#include "VppRouteDomainManager.hpp"
+#include "VppRouteManager.hpp"
 
 using namespace VOM;
 
 namespace VPP
 {
-RouteDomainManager::RouteDomainManager(Runtime &runtime)
+RouteManager::RouteManager(Runtime &runtime)
     : m_runtime(runtime)
 {
 }
@@ -93,7 +94,7 @@ get_rd_subnets(opflexagent::Agent &agent, const opflex::modb::URI &uri)
 }
 
 void
-RouteDomainManager::handle_update(const opflex::modb::URI &uri)
+RouteManager::handle_domain_update(const opflex::modb::URI &uri)
 {
     OM::mark_n_sweep ms(uri.toString());
 
@@ -275,6 +276,72 @@ RouteDomainManager::handle_update(const opflex::modb::URI &uri)
             }
         }
     }
+}
+
+void
+RouteManager::handle_static_update(const opflex::modb::URI &uri)
+{
+    const std::string &uuid = uri.toString();
+
+    OM::mark_n_sweep ms(uuid);
+
+    boost::optional<std::shared_ptr<modelgbp::gbp::StaticRoute>> op_static_route =
+        modelgbp::gbp::StaticRoute::resolve(m_runtime.agent.getFramework(), uri);
+
+    if (!op_static_route)
+    {
+        VLOGD << "Cleaning up for StaticRoute: " << uri;
+        return;
+    }
+
+    std::shared_ptr<modelgbp::gbp::StaticRoute> static_route = op_static_route.get();
+
+    if (!static_route->isAddressSet() || !static_route->isPrefixLenSet())
+    {
+        VLOGE << "StaticRoute with no prefix: " << uri;
+        return;
+    }
+
+    const route::prefix_t pfx(boost::asio::ip::address::from_string(static_route->getAddress("")),
+                              static_route->getPrefixLen(128));
+
+    boost::optional<std::shared_ptr<modelgbp::gbp::StaticRouteToVrfRSrc>> vrf_ref =
+        static_route->resolveGbpStaticRouteToVrfRSrc();
+    if(!vrf_ref || !vrf_ref.get()->getTargetURI())
+    {
+        VLOGE << "StaticRoute with no VRF: " << uri;
+    }
+
+    uint32_t rd_id =
+        m_runtime.id_gen.get(modelgbp::gbp::RoutingDomain::CLASS_ID,
+                             vrf_ref.get()->getTargetURI().get());
+
+    VOM::route_domain rd(rd_id);
+    VOM::OM::write(uuid, rd);
+
+
+    std::vector<std::shared_ptr<modelgbp::gbp::StaticNextHop>> nhs;
+    static_route->resolveGbpStaticNextHop(nhs);
+
+    route::ip_route vroute(rd, pfx);
+
+    for (auto &nh : nhs)
+    {
+        if (!nh->isIpSet())
+            continue;
+
+        vroute.add({rd, boost::asio::ip::address::from_string(nh->getIp(""))});
+    }
+
+    VLOGD << "StaticRoute: uri: " << uri << " = " << vroute.to_string();
+
+    VOM::OM::write(uuid, vroute);
+}
+
+void
+RouteManager::handle_remote_update(const opflex::modb::URI &uri)
+{
+    VLOGE << "RemoteRoute not supported: " << uri;
 }
 
 }; // namepsace VPP
