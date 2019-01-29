@@ -10,6 +10,10 @@
 #ifndef __VPP_UTIL_H__
 #define __VPP_UTIL_H__
 
+#include <opflex/modb/MAC.h>
+
+#include <boost/optional.hpp>
+
 #include <vom/interface.hpp>
 
 using namespace VOM;
@@ -17,6 +21,8 @@ using namespace VOM;
 namespace VPP
 {
 const interface::type_t &getIntfTypeFromName(const std::string &name);
+
+boost::optional<mac_address_t> mac_from_modb(boost::optional<const opflex::modb::MAC&>);
 };
 
 /*

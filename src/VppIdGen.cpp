@@ -85,6 +85,21 @@ IdGen::get_namespace(opflex::modb::class_id_t cid)
     return nmspc;
 }
 
+/**
+ * Get the VNID for the specified endpoint groups or L3 external
+ * networks
+ *
+ * @param uris URIs of endpoint groups to search for
+ * @param ids the corresponding set of vnids
+ */
+uint32_t
+IdGen::get_ext_net_vnid(const opflex::modb::URI &uri)
+{
+    // External networks are assigned private VNIDs that have bit 31 (MSB)
+    // set to 1. This is fine because legal VNIDs are 24-bits or less.
+    return (get(modelgbp::gbp::L3ExternalNetwork::CLASS_ID, uri) | (1 << 31));
+}
+
 } // namespace VPP
 
 /*

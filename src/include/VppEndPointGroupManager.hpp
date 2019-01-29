@@ -16,6 +16,10 @@
 namespace VOM
 {
 class gbp_endpoint_group;
+class gbp_bridge_domain;
+class bridge_domain;
+class route_domain;
+class vxlan_tunnel;
 };
 
 namespace VPP
@@ -39,12 +43,28 @@ class EndPointGroupManager
 
     static ForwardInfo
     get_fwd_info(Runtime &r,
-                 const opflex::modb::URI &uri) throw(NoFowardInfoException);
+                 const opflex::modb::URI &uri)
+      throw(NoFowardInfoException);
 
     void handle_update(const opflex::modb::URI &epgURI);
 
     static std::shared_ptr<VOM::gbp_endpoint_group>
-    mk_group(Runtime &r, const std::string &key, const opflex::modb::URI &uri);
+    mk_group(Runtime &r,
+             const std::string &key,
+             const opflex::modb::URI &uri);
+
+    static std::shared_ptr<vxlan_tunnel>
+    mk_mcast_tunnel(Runtime &r,
+                    const std::string &key,
+                    uint32_t vni,
+                    const std::string &maddr);
+
+    static std::shared_ptr<VOM::interface>
+    mk_bvi(Runtime &r,
+           const std::string &key,
+           const VOM::bridge_domain &bd,
+           const VOM::route_domain &rd,
+           const boost::optional<mac_address_t> &mac = boost::none);
 
   private:
     /**

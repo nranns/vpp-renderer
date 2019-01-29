@@ -26,6 +26,12 @@ struct Runtime
         , uplink(agent)
     {
     }
+
+    opflexagent::PolicyManager &policy_manager()
+    {
+        return agent.getPolicyManager();
+    }
+
     /**
      * Referene to the uber-agent
      */

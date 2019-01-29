@@ -33,22 +33,6 @@ ContractManager::ContractManager(opflexagent::Agent &agent, IdGen &id_gen)
 {
 }
 
-/**
- * Get the VNID for the specified endpoint groups or L3 external
- * networks
- *
- * @param uris URIs of endpoint groups to search for
- * @param ids the corresponding set of vnids
- */
-static uint32_t
-get_ext_net_vnid(IdGen &id_gen, const opflex::modb::URI &uri)
-{
-    // External networks are assigned private VNIDs that have bit 31 (MSB)
-    // set to 1. This is fine because legal VNIDs are 24-bits or less.
-    return (id_gen.get(modelgbp::gbp::L3ExternalNetwork::CLASS_ID, uri) |
-            (1 << 31));
-}
-
 static void
 get_group_vnid(opflexagent::Agent &agent,
                IdGen &id_gen,
@@ -69,7 +53,7 @@ get_group_vnid(opflexagent::Agent &agent,
             rd = pm.getRDForL3ExtNet(u);
             if (rd)
             {
-                vnid = get_ext_net_vnid(id_gen, u);
+                vnid = id_gen.get_ext_net_vnid(u);
             }
         }
         if (vnid && rd)

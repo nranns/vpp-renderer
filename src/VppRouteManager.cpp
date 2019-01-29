@@ -13,6 +13,7 @@
 #include <modelgbp/gbp/L3ExternalNetwork.hpp>
 #include <modelgbp/gbp/RoutingDomain.hpp>
 #include <modelgbp/gbp/StaticRoute.hpp>
+#include <modelgbp/gbp/RemoteRoute.hpp>
 
 #include <opflexagent/RDConfig.h>
 
@@ -341,7 +342,31 @@ RouteManager::handle_static_update(const opflex::modb::URI &uri)
 void
 RouteManager::handle_remote_update(const opflex::modb::URI &uri)
 {
-    VLOGE << "RemoteRoute not supported: " << uri;
+    const std::string &uuid = uri.toString();
+
+    OM::mark_n_sweep ms(uuid);
+
+    boost::optional<std::shared_ptr<modelgbp::gbp::RemoteRoute>> op_remote_route =
+        modelgbp::gbp::RemoteRoute::resolve(m_runtime.agent.getFramework(), uri);
+
+    if (!op_remote_route)
+    {
+        VLOGD << "Cleaning up for RemoteRoute: " << uri;
+        return;
+    }
+
+    std::shared_ptr<modelgbp::gbp::RemoteRoute> remote_route = op_remote_route.get();
+
+    if (!remote_route->isAddressSet() || !remote_route->isPrefixLenSet())
+    {
+        VLOGE << "RemoteRoute with no prefix: " << uri;
+        return;
+    }
+
+    const route::prefix_t pfx(boost::asio::ip::address::from_string(remote_route->getAddress("")),
+                              remote_route->getPrefixLen(128));
+
+    // TODO
 }
 
 }; // namepsace VPP

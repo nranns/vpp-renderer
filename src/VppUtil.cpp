@@ -30,6 +30,15 @@ getIntfTypeFromName(const std::string &name)
     return interface::type_t::AFPACKET;
 }
 
+boost::optional<mac_address_t>
+mac_from_modb(boost::optional<const opflex::modb::MAC&> mo)
+{
+  if (!mo)
+    return boost::none;
+
+  return (mac_address_t(mo->toString()));
+}
+
 }; // namespace VPP
 
 /*

@@ -28,6 +28,7 @@
 #include <vom/gbp_contract.hpp>
 #include <vom/gbp_endpoint.hpp>
 #include <vom/gbp_endpoint_group.hpp>
+#include <vom/gbp_ext_itf.hpp>
 #include <vom/gbp_subnet.hpp>
 #include <vom/gbp_vxlan.hpp>
 #include <vom/hw.hpp>
@@ -58,7 +59,7 @@ using namespace opflexagent;
 using boost::asio::ip::address;
 using boost::asio::ip::address_v4;
 
-BOOST_AUTO_TEST_SUITE(VppManager_test)
+BOOST_AUTO_TEST_SUITE(vpp)
 
 struct MockStatReader : public stat_reader
 {
@@ -347,34 +348,21 @@ class VppManagerFixture : public ModbFixture
         epg3 = space->addGbpEpGroup("epg3");
 
         /*
-         * External EP
+         * L3Out objects
          */
-        bd2 = space->addGbpBridgeDomain("bd2");
-        bd2->addGbpeInstContext()->setEncapId(0xA2);
-        bd2->addGbpeInstContext()->setMulticastGroupIP("224.1.2.2");
-
-        epg2->addGbpEpGroupToNetworkRSrc()->setTargetBridgeDomain(
-            bd2->getURI());
-        epg2->addGbpeInstContext()->setEncapId(0xACC);
-
-        /* ext_ep0.reset(new Endpoint("0-0-e-0")); */
-        /* ext_ep0->setMAC(opflex::modb::MAC("00:00:00:00:0E:00")); */
-        /* ext_ep0->addIP("10.30.0.1"); */
-        /* ext_ep0->setInterfaceName("port-e-00"); */
-        /* ext_ep0->setEgURI(epg2->getURI()); */
-        /* epSrc.updateEndpoint(*ext_ep0); */
-
         ext_rd0 = space->addGbpRoutingDomain("ext_rd0");
         ext_rd0->addGbpeInstContext()->setEncapId(1122);
         ext_bd0 = space->addGbpExternalL3BridgeDomain("ext_bd0");
         ext_bd0->addGbpeInstContext()->setEncapId(1133);
+        ext_bd0->addGbpeInstContext()->setMulticastGroupIP("224.1.2.2");
         ext_bd0->addGbpExternalL3BridgeDomainToVrfRSrc()->
             setTargetRoutingDomain(ext_rd0->getURI());
         ext_node0 = space->addGbpExternalNode("ext_node0");
-        ext_itf0 = space->addGbpExternalInterface("ext_int0");
-        ext_itf0->setAddress("100.100.100.0");
+        ext_itf0 = space->addGbpExternalInterface("ext_itf0");
+        ext_itf0->setAddress("10.30.0.1");
         ext_itf0->setPrefixLen(24);
         ext_itf0->setEncap(1144);
+        ext_itf0->setMac(opflex::modb::MAC("00:00:00:00:80:00"));
         ext_itf0->setIfInstT(L3IfTypeEnumT::CONST_EXTSVI);
         ext_itf0->addGbpExternalInterfaceToExtl3bdRSrc()->
             setTargetExternalL3BridgeDomain(ext_bd0->getURI());
@@ -431,6 +419,14 @@ class VppManagerFixture : public ModbFixture
         ep4->setEgURI(epg1->getURI());
         epSrc.updateEndpoint(*ep4);
 
+        ext_ep0.reset(new Endpoint("0-0-e-0"));
+        ext_ep0->setMAC(opflex::modb::MAC("00:00:00:00:0E:00"));
+        ext_ep0->addIP("10.30.0.2");
+        ext_ep0->setInterfaceName("port-e-00");
+        ext_ep0->setEgURI(ext_itf0->getURI());
+        ext_ep0->setExtInterfaceURI(ext_itf0->getURI());
+        ext_ep0->setExtNodeURI(ext_node0->getURI());
+        epSrc.updateEndpoint(*ext_ep0);
     }
 
     void
@@ -509,6 +505,42 @@ class VppManagerFixture : public ModbFixture
     }
 
     void
+    do_dhcp()
+    {
+        host = boost::asio::ip::address::from_string("192.168.1.1");
+        router = boost::asio::ip::address::from_string("192.168.1.2");
+
+        route::prefix_t pfx(host, 24);
+        mac_address_t mac("00:00:11:22:33:44");
+
+        /*
+         * boot phase so the VPP/host address is learnt
+         */
+        interface v_phy("opflex-itf",
+                        interface::type_t::AFPACKET,
+                        interface::admin_state_t::UP);
+        sub_interface v_sub(v_phy, interface::admin_state_t::UP, 4093);
+
+        WAIT_FOR_MATCH(v_phy);
+        WAIT_FOR_MATCH(v_sub);
+
+        std::string fqdn = boost::asio::ip::host_name();
+        WAIT_FOR_MATCH(dhcp_client(v_sub, fqdn));
+        WAIT_FOR_MATCH(lldp_global(fqdn, 5, 2));
+        WAIT_FOR_MATCH(lldp_binding(v_phy, "uplink-interface"));
+
+        std::shared_ptr<dhcp_client::lease_t> lease =
+          std::make_shared<dhcp_client::lease_t>(dhcp_client::state_t::BOUND,
+                                                 v_sub.singular(),
+                                                 router,
+                                                 pfx,
+                                                 boost::asio::ip::host_name(),
+                                                 mac);
+
+        vppManager.uplink().handle_dhcp_event(lease);
+    }
+
+    void
     removeEpg(std::shared_ptr<modelgbp::gbp::EpGroup> epg)
     {
         opflex::modb::Mutator m2(framework, policyOwner);
@@ -536,6 +568,7 @@ class VppManagerFixture : public ModbFixture
         return ipAddresses;
     }
 
+    address host, router;
     std::shared_ptr<Endpoint> ep5, ext_ep0;
     std::shared_ptr<modelgbp::gbp::BridgeDomain> bd2;
     std::shared_ptr<modelgbp::gbp::EpGroup> epg_nat;
@@ -571,10 +604,10 @@ class VppStitchedManagerFixture : public VppManagerFixture
     VppStitchedManagerFixture()
     {
         vppManager.start();
-        vppManager.registerModbListeners();
     }
     ~VppStitchedManagerFixture()
     {
+        vppManager.stop();
     }
 };
 
@@ -586,10 +619,10 @@ class VppTransportManagerFixture : public VppManagerFixture
     {
         framework.setElementMode(opflex::ofcore::OFConstants::OpflexElementMode::TRANSPORT_MODE);
         vppManager.start();
-        vppManager.registerModbListeners();
     }
     ~VppTransportManagerFixture()
     {
+        vppManager.stop();
     }
 };
 
@@ -1732,7 +1765,7 @@ BOOST_FIXTURE_TEST_CASE(policyRedirect, VppTransportManagerFixture)
 BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
                         VppTransportManagerFixture)
 {
-    address_v4 spine_mac, spine_v4, spine_v6;
+    address_v4 spine_mac, spine_v4, spine_v6, bd_mc;
     address host, router;
 
     host = boost::asio::ip::address::from_string("192.168.1.1");
@@ -1744,6 +1777,8 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
     framework.getMacProxy(spine_mac);
     framework.getV4Proxy(spine_v4);
     framework.getV6Proxy(spine_v6);
+
+    bd_mc = boost::asio::ip::address_v4::from_string("224.1.1.1");
 
     /*
      * boot phase so the VPP/host address is learnt
@@ -1808,7 +1843,11 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
         new vxlan_tunnel(host, spine_v6, 0xA0A, vxlan_tunnel::mode_t::GBP);
     WAIT_FOR_MATCH(*vt_v6);
 
-    gbp_bridge_domain *v_gbd = new gbp_bridge_domain(v_bd, *v_bvi, *vt_mac);
+    vxlan_tunnel *vt_mc =
+        new vxlan_tunnel(host, bd_mc, 0xA0A, vxlan_tunnel::mode_t::GBP);
+    WAIT_FOR_MATCH(*vt_mc);
+
+    gbp_bridge_domain *v_gbd = new gbp_bridge_domain(v_bd, *v_bvi, *vt_mac, *vt_mc);
     WAIT_FOR_MATCH(*v_gbd);
     gbp_route_domain *v_grd = new gbp_route_domain(v_rd, *vt_v4, *vt_v6);
     WAIT_FOR_MATCH(*v_grd);
@@ -1857,7 +1896,67 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
 
 BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
 {
+    do_dhcp();
     vppManager.externalInterfaceUpdated(ext_itf0->getURI());
+
+    interface v_phy("opflex-itf",
+                    interface::type_t::AFPACKET,
+                    interface::admin_state_t::UP);
+    sub_interface v_sub(v_phy, interface::admin_state_t::UP, 4093);
+
+    WAIT_FOR_MATCH(v_phy);
+    WAIT_FOR_MATCH(v_sub);
+
+    route_domain v_rd(100);
+    WAIT_FOR_MATCH(v_rd);
+
+    bridge_domain v_bd(100, bridge_domain::learning_mode_t::OFF);
+    WAIT_FOR_MATCH(v_bd);
+
+    std::shared_ptr<interface> v_bvi =
+      std::make_shared<interface>("bvi-100",
+                                  interface::type_t::BVI,
+                                  interface::admin_state_t::UP,
+                                  v_rd);
+    l2_address_t l2addr(mac_address_t("00:00:00:00:80:00"));
+    v_bvi->set(l2addr);
+
+    WAIT_FOR_MATCH(*v_bvi);
+
+    boost::asio::ip::address bd_mcast =
+      boost::asio::ip::address::from_string("224.1.2.2");
+
+    std::shared_ptr<vxlan_tunnel> vt_bd_mcast =
+      std::make_shared<vxlan_tunnel>(host, bd_mcast, 1133, v_sub,
+                                     vxlan_tunnel::mode_t::GBP);
+    WAIT_FOR_MATCH(*vt_bd_mcast);
+    igmp_binding igmp_b(v_sub);
+    WAIT_FOR_MATCH(igmp_b);
+    WAIT_FOR_MATCH(igmp_listen(igmp_b, bd_mcast.to_v4()));
+
+    gbp_bridge_domain *v_gbd = new gbp_bridge_domain(v_bd, v_bvi, {}, vt_bd_mcast);
+    WAIT_FOR_MATCH(*v_gbd);
+    gbp_route_domain *v_grd = new gbp_route_domain(v_rd);
+    WAIT_FOR_MATCH(*v_grd);
+
+    gbp_endpoint_group *v_epg = new gbp_endpoint_group(3333, 1133, *v_grd, *v_gbd);
+    WAIT_FOR_MATCH(*v_epg);
+
+    gbp_ext_itf *v_ei = new gbp_ext_itf(*v_bvi, *v_gbd, *v_grd);
+    WAIT_FOR_MATCH(*v_ei);
+
+    inspector.handle_input("all", std::cout);
+
+/*     WAIT_FOR_NOT_PRESENT(*v_epg); */
+/*     delete v_epg; */
+
+/*     WAIT_FOR_NOT_PRESENT(*v_gbd); */
+/*     WAIT_FOR_NOT_PRESENT(*v_grd); */
+/*     delete v_gbd; */
+/*     delete v_grd; */
+
+/*     WAIT_FOR_NOT_PRESENT(*v_bvi); */
+/*     delete v_bvi; */
 }
 
 BOOST_FIXTURE_TEST_CASE(static_route, VppTransportManagerFixture)
@@ -1881,12 +1980,10 @@ BOOST_FIXTURE_TEST_CASE(static_route, VppTransportManagerFixture)
 
     WAIT_FOR_MATCH(v_route);
 
-    inspector.handle_input("all", std::cout);
-    inspector.handle_input("help", std::cout);
-
     opflex::modb::Mutator m1(framework, policyOwner);
     static_route1->remove();
     m1.commit();
+    vppManager.staticRouteUpdated(static_route1->getURI());
 
     WAIT_FOR_NOT_PRESENT(v_route);
 }

@@ -48,7 +48,7 @@ EndPointGroupManager::get_fwd_info(
     Runtime &runtime, const opflex::modb::URI &uri) throw(NoFowardInfoException)
 {
     EndPointGroupManager::ForwardInfo fwd;
-    opflexagent::PolicyManager &polMgr = runtime.agent.getPolicyManager();
+    opflexagent::PolicyManager &polMgr = runtime.policy_manager();
     boost::optional<uint32_t> epgVnid = polMgr.getVnidForGroup(uri);
 
     if (!epgVnid)
@@ -82,6 +82,92 @@ EndPointGroupManager::get_fwd_info(
     return fwd;
 }
 
+std::shared_ptr<vxlan_tunnel>
+EndPointGroupManager::mk_mcast_tunnel(Runtime &r,
+                                      const std::string &key,
+                                      uint32_t vni,
+                                      const std::string &maddr)
+{
+  /*
+   * Add the Vxlan mcast tunnel that will carry the broadcast
+   * and multicast traffic
+   */
+  boost::asio::ip::address dst =
+    boost::asio::ip::address::from_string(maddr);
+  vxlan_tunnel vt(r.uplink.local_address(),
+                  dst,
+                  vni,
+                  *r.uplink.local_interface(),
+                  vxlan_tunnel::mode_t::GBP);
+  OM::write(key, vt);
+
+  /*
+   * add the mcast group to accept via the uplink and
+   * forward locally.
+   */
+  route::path via_uplink(*r.uplink.local_interface(),
+                         nh_proto_t::IPV4);
+  route::ip_mroute mroute({dst.to_v4(), 32});
+
+  mroute.add(via_uplink, route::itf_flags_t::ACCEPT);
+  mroute.add({route::path::special_t::LOCAL},
+             route::itf_flags_t::FORWARD);
+  OM::write(key, mroute);
+
+  /*
+   * join the group on the uplink interface
+   */
+  igmp_binding igmp_b(*r.uplink.local_interface());
+  OM::write(key, igmp_b);
+
+  igmp_listen igmp_l(igmp_b, dst.to_v4());
+  OM::write(key, igmp_l);
+
+  return (vt.singular());
+}
+
+std::shared_ptr<VOM::interface>
+EndPointGroupManager::mk_bvi(Runtime &r,
+                             const std::string &key,
+                             const bridge_domain &bd,
+                             const route_domain &rd,
+                             const boost::optional<mac_address_t> &mac)
+{
+  std::shared_ptr<interface> bvi =
+    std::make_shared<interface>("bvi-" + std::to_string(bd.id()),
+                                interface::type_t::BVI,
+                                interface::admin_state_t::UP,
+                                rd);
+  if (mac)
+  {
+    bvi->set(mac.get());
+  }
+  else if (r.vr)
+  {
+    /*
+     * Set the BVI's MAC address to the Virtual Router
+     * address, so packets destined to the VR are handled
+     * by layer 3.
+     */
+    bvi->set(r.vr->mac());
+  }
+  OM::write(key, *bvi);
+
+  /*
+   * Add the BVI to the BD
+   */
+  l2_binding l2_bvi(*bvi, bd);
+  OM::write(key, l2_bvi);
+
+  /*
+   * the bridge is not in learning mode. So add an L2FIB entry for the BVI
+   */
+  bridge_domain_entry be(bd, bvi->l2_address().to_mac(), *bvi);
+  OM::write(key, be);
+
+  return bvi;
+}
+
 std::shared_ptr<VOM::gbp_endpoint_group>
 EndPointGroupManager::mk_group(Runtime &runtime,
                                const std::string &key,
@@ -106,32 +192,7 @@ EndPointGroupManager::mk_group(Runtime &runtime,
         /*
          * Create a BVI interface for the EPG and add it to the bridge-domain
          */
-        interface bvi("bvi-" + std::to_string(bd.id()),
-                      interface::type_t::BVI,
-                      interface::admin_state_t::UP,
-                      rd);
-        if (runtime.vr)
-        {
-            /*
-             * Set the BVI's MAC address to the Virtual Router
-             * address, so packets destined to the VR are handled
-             * by layer 3.
-             */
-            bvi.set(runtime.vr->mac());
-        }
-        OM::write(key, bvi);
-
-        /*
-         * Add the BVIs to the BD
-         */
-        l2_binding l2_bvi(bvi, bd);
-        OM::write(key, l2_bvi);
-
-        /*
-         * the bridge is not in learning mode. So add an L2FIB entry for the BVI
-         */
-        bridge_domain_entry be(bd, bvi.l2_address().to_mac(), bvi);
-        OM::write(key, be);
+        std::shared_ptr<interface> bvi = mk_bvi(runtime, key, bd, rd);
 
         std::shared_ptr<SpineProxy> spine_proxy =
             runtime.uplink.spine_proxy(fwd.vnid);
@@ -140,80 +201,44 @@ EndPointGroupManager::mk_group(Runtime &runtime,
         {
             /*
              * TRANSPORT mode
-             *
-             * construct a BD that uses the MAC spine proxy as the
-             * UU-fwd interface
-             */
-            gbp_bridge_domain gbd(bd, bvi, spine_proxy->mk_mac(key));
-            OM::write(key, gbd);
-
-            /*
              * then a route domain that uses the v4 and v6 resp
              */
             gbp_route_domain grd(
                 rd, spine_proxy->mk_v4(key), spine_proxy->mk_v6(key));
             OM::write(key, grd);
 
-            gepg = std::make_shared<gbp_endpoint_group>(fwd.vnid, grd, gbd);
-
             /*
              * Add the base GBP-vxlan tunnels that will be used to derive
              * the learned endpoints
              */
             boost::optional<uint32_t> bd_vnid =
-                runtime.agent.getPolicyManager().getBDVnidForGroup(uri);
+              runtime.policy_manager().getBDVnidForGroup(uri);
             boost::optional<uint32_t> rd_vnid =
-                runtime.agent.getPolicyManager().getRDVnidForGroup(uri);
+              runtime.policy_manager().getRDVnidForGroup(uri);
+            boost::optional<std::string> bd_mcast =
+              runtime.policy_manager().getBDMulticastIPForGroup(uri);
 
-            if (bd_vnid)
+            if (bd_vnid && bd_mcast)
             {
-                gbp_vxlan gvx_bd(bd_vnid.get(), gbd);
-                OM::write(key, gvx_bd);
+              std::shared_ptr<vxlan_tunnel> vt_mc =
+                mk_mcast_tunnel(runtime, key, bd_vnid.get(), bd_mcast.get());
 
-                /*
-                 * Add the Vxlan mcast tunnel that will carry the broadcast
-                 * and multicast traffic
-                 */
-                boost::optional<std::string> bd_mcast =
-                    runtime.agent.getPolicyManager().getBDMulticastIPForGroup(
-                        uri);
-                if (bd_mcast)
-                {
-                    boost::asio::ip::address dst =
-                        boost::asio::ip::address::from_string(bd_mcast.get());
-                    vxlan_tunnel vt_bd_mcast(runtime.uplink.local_address(),
-                                             dst,
-                                             bd_vnid.get(),
-                                             *runtime.uplink.local_interface(),
-                                             vxlan_tunnel::mode_t::GBP);
-                    OM::write(key, vt_bd_mcast);
+              /*
+               * construct a BD that uses the MAC spine proxy as the
+               * UU-fwd interface
+               */
+              gbp_bridge_domain gbd(bd, *bvi, spine_proxy->mk_mac(key), vt_mc);
+              OM::write(key, gbd);
 
-                    l2_binding l2_vxbd(vt_bd_mcast, bd);
-                    OM::write(key, l2_vxbd);
+              /*
+               * base tunnel on which the TEPs derive and EPs are learnt
+               */
+              gbp_vxlan gvx_bd(bd_vnid.get(), gbd);
+              OM::write(key, gvx_bd);
 
-                    /*
-                     * add the mcast group to accept via the uplink and
-                     * forward locally.
-                     */
-                    route::path via_uplink(*runtime.uplink.local_interface(),
-                                           nh_proto_t::IPV4);
-                    route::ip_mroute mroute({dst.to_v4(), 32});
-
-                    mroute.add(via_uplink, route::itf_flags_t::ACCEPT);
-                    mroute.add({route::path::special_t::LOCAL},
-                               route::itf_flags_t::FORWARD);
-                    OM::write(key, mroute);
-
-                    /*
-                     * join the group on the uplink interface
-                     */
-                    igmp_binding igmp_b(*runtime.uplink.local_interface());
-                    OM::write(key, igmp_b);
-
-                    igmp_listen igmp_l(igmp_b, dst.to_v4());
-                    OM::write(key, igmp_l);
-                }
+              gepg = std::make_shared<gbp_endpoint_group>(fwd.vnid, grd, gbd);
             }
+
             if (rd_vnid)
             {
                 gbp_vxlan gvx_rd(rd_vnid.get(), grd);
@@ -244,7 +269,7 @@ EndPointGroupManager::mk_group(Runtime &runtime,
             }
             OM::write(key, l2_upl);
 
-            gbp_bridge_domain gbd(bd, bvi);
+            gbp_bridge_domain gbd(bd, *bvi);
             OM::write(key, gbd);
 
             gbp_route_domain grd(rd);
@@ -279,9 +304,9 @@ EndPointGroupManager::handle_update(const opflex::modb::URI &epgURI)
 
     VLOGD << "Updating endpoint-group:" << epgURI;
 
-    opflexagent::PolicyManager &pm = m_runtime.agent.getPolicyManager();
+    opflexagent::PolicyManager &pm = m_runtime.policy_manager();
 
-    if (!m_runtime.agent.getPolicyManager().groupExists(epgURI))
+    if (!m_runtime.policy_manager().groupExists(epgURI))
     {
         VLOGD << "Deleting endpoint-group:" << epgURI;
         return;
@@ -316,7 +341,7 @@ EndPointGroupManager::handle_update(const opflex::modb::URI &epgURI)
          * For each subnet the EPG has
          */
         opflexagent::PolicyManager::subnet_vector_t subnets;
-        m_runtime.agent.getPolicyManager().getSubnetsForGroup(epgURI, subnets);
+        m_runtime.policy_manager().getSubnetsForGroup(epgURI, subnets);
 
         for (auto sn : subnets)
         {
