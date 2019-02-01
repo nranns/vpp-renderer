@@ -144,21 +144,26 @@ ExtItfManager::handle_update(const opflex::modb::URI &uri)
 
     for (std::shared_ptr<modelgbp::gbp::L3ExternalNetwork> net : ext_nets)
     {
+        const opflex::modb::URI net_uri = net->getURI();
+
         /* For each external network, get the sclass */
         boost::optional<uint32_t> sclass =
-            m_runtime.policy_manager().getSclassForExternalNet(uri);
+            m_runtime.policy_manager().getSclassForExternalNet(net_uri);
 
         if (!sclass)
-          continue;
+        {
+            VLOGI << "External-Network; no sclass: " << net_uri;
+            continue;
+        }
 
         /* Construct a fake EPG so we re-use the same model of epg-ID<->sclass
          * conversions */
-        uint32_t epg_id = m_runtime.id_gen.get_ext_net_vnid(uri);
+        uint32_t epg_id = m_runtime.id_gen.get_ext_net_vnid(net_uri);
         gbp_endpoint_group gepg(epg_id, sclass.get(), grd, gbd);
         OM::write(uuid, gepg);
 
         /* traverse each subnet in the network */
-        std::vector<std::shared_ptr<modelgbp::gbp::ExternalSubnet> > ext_subs;
+        std::vector<std::shared_ptr<modelgbp::gbp::ExternalSubnet>> ext_subs;
         net->resolveGbpExternalSubnet(ext_subs);
 
         for (std::shared_ptr<modelgbp::gbp::ExternalSubnet> snet : ext_subs)

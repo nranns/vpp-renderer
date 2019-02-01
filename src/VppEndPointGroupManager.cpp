@@ -94,6 +94,7 @@ EndPointGroupManager::mk_mcast_tunnel(Runtime &r,
    */
   boost::asio::ip::address dst =
     boost::asio::ip::address::from_string(maddr);
+
   vxlan_tunnel vt(r.uplink.local_address(),
                   dst,
                   vni,
@@ -222,6 +223,8 @@ EndPointGroupManager::mk_group(Runtime &runtime,
             {
               std::shared_ptr<vxlan_tunnel> vt_mc =
                 mk_mcast_tunnel(runtime, key, bd_vnid.get(), bd_mcast.get());
+              l2_binding l2_vxbd(*vt_mc, bd);
+              OM::write(key, l2_vxbd);
 
               /*
                * construct a BD that uses the MAC spine proxy as the
