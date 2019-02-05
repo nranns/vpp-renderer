@@ -241,6 +241,10 @@ EndPointGroupManager::mk_group(Runtime &runtime,
 
               gepg = std::make_shared<gbp_endpoint_group>(fwd.vnid, grd, gbd);
             }
+            else
+            {
+              VLOGE << "no bridge vnid/mcast: " << uri;
+            }
 
             if (rd_vnid)
             {

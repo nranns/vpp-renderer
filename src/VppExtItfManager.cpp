@@ -168,15 +168,15 @@ ExtItfManager::handle_update(const opflex::modb::URI &uri)
 
         for (std::shared_ptr<modelgbp::gbp::ExternalSubnet> snet : ext_subs)
         {
-            if (!snet->isAddressSet() || !snet->isPrefixLenSet())
-                    continue;
-
             VLOGD << "External-Interface; subnet:" << uri
                   << " external:" << ext_dom.get()->getName("n/a")
                   << " external-net:" << net->getName("n/a")
                   << " external-sub:" << snet->getAddress("n/a") << "/"
                   << std::to_string(snet->getPrefixLen(99))
                   << " sclass:" << sclass.get();
+
+            if (!snet->isAddressSet() || !snet->isPrefixLenSet())
+                    continue;
 
             boost::asio::ip::address addr =
                 boost::asio::ip::address::from_string(snet->getAddress().get());
