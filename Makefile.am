@@ -28,13 +28,24 @@ librenderer_vpp_la_LIBADD = \
 	$(libopflex_agent_LIBS)
 
 noinst_HEADERS = \
-	src/include/VppInspect.hpp \
-	src/include/VppLogHandler.hpp \
-	src/include/VppRenderer.hpp \
-	src/include/VppUplink.hpp \
-	src/include/VppVirtualRouter.hpp \
-	src/include/VppCrossConnect.hpp \
-	src/include/VppManager.hpp
+       src/include/VppContractManager.hpp \
+       src/include/VppCrossConnect.hpp \
+       src/include/VppEndPointGroupManager.hpp \
+       src/include/VppEndPointManager.hpp \
+       src/include/VppExtItfManager.hpp \
+       src/include/VppIdGen.hpp \
+       src/include/VppInspect.hpp \
+       src/include/VppLog.hpp \
+       src/include/VppLogHandler.hpp \
+       src/include/VppManager.hpp \
+       src/include/VppRenderer.hpp \
+       src/include/VppRouteManager.hpp \
+       src/include/VppRuntime.hpp \
+       src/include/VppSecurityGroupManager.hpp \
+       src/include/VppSpineProxy.hpp \
+       src/include/VppUplink.hpp \
+       src/include/VppUtil.hpp \
+       src/include/VppVirtualRouter.hpp
 
 librenderer_vpp_la_SOURCES = \
 	src/VppContractManager.cpp \
