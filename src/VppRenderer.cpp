@@ -116,9 +116,12 @@ VppRenderer::setProperties(const boost::property_tree::ptree &properties)
     static const std::string CROSS_CONNECT("x-connect");
     static const std::string EAST("east");
     static const std::string WEST("west");
-    static const std::string IFACE("iface");
-    static const std::string VLAN("vlan");
-    static const std::string IP("ip-address");
+    static const std::string EIFACE("iface");
+    static const std::string EVLAN("vlan");
+    static const std::string EIP("ip-address");
+    static const std::string WIFACE("iface");
+    static const std::string WVLAN("vlan");
+    static const std::string WIP("ip-address");
 
     auto vxlan = properties.get_child_optional(ENCAP_VXLAN);
     auto vlan = properties.get_child_optional(ENCAP_VLAN);
@@ -191,18 +194,20 @@ VppRenderer::setProperties(const boost::property_tree::ptree &properties)
             auto west = x.second.get_child_optional(WEST);
             if (east && west)
             {
-                VPP::CrossConnect::xconnect_t xcon_east(
-                    east.get().get<std::string>(IFACE, ""),
-                    east.get().get<uint16_t>(VLAN, 0),
-                    east.get().get<std::string>(IP, ""));
-                VPP::CrossConnect::xconnect_t xcon_west(
-                    west.get().get<std::string>(IFACE, ""),
-                    west.get().get<uint16_t>(VLAN, 0),
-                    west.get().get<std::string>(IP, ""));
-                vppManager->crossConnect().insert_xconnect(
-                    std::make_pair(xcon_east, xcon_west));
-                LOG(opflexagent::INFO) << xcon_east.to_string();
-                LOG(opflexagent::INFO) << xcon_west.to_string();
+                std::string ename = east.get().get<std::string>(EIFACE, "");
+                uint16_t evlan = east.get().get<uint16_t>(EVLAN, 0);
+                std::string eip = east.get().get<std::string>(EIP, "0.0.0.0");
+                std::string wname = west.get().get<std::string>(WIFACE, "");
+                uint16_t wvlan = west.get().get<uint16_t>(WVLAN, 0);
+                std::string wip = west.get().get<std::string>(WIP, "0.0.0.0");
+                LOG(opflexagent::DEBUG) << "east:[" << ename << " , " << evlan << " , " << eip << "]";
+                LOG(opflexagent::DEBUG) << "west:[" << wname << " , " << wvlan << " , " << wip << "]";
+              if (!ename.empty() && !wname.empty()) {
+                  VPP::CrossConnect::xconnect_t xcon_east(ename, evlan, eip);
+                  VPP::CrossConnect::xconnect_t xcon_west(wname, wvlan, wip);
+                  vppManager->crossConnect().insert_xconnect(
+                     std::make_pair(xcon_east, xcon_west));
+               }
             }
         }
     }

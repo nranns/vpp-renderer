@@ -68,7 +68,7 @@ void
 CrossConnect::configure_xconnect()
 {
 
-    LOG(opflexagent::INFO) << "configure";
+    LOG(opflexagent::INFO) << "configure cross connect";
 
     for (auto it : xconnects)
     {
