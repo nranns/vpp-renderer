@@ -111,7 +111,7 @@ EndPointManager::mk_bd_interface(
         l2_binding l2itf(*itf, *bd);
         if (ep.getAccessIfaceVlan())
         {
-            l2itf.set(l2_binding::l2_vtr_op_t::L2_VTR_POP_1, vlan_id);
+            l2itf.set(l2_vtr_op_t::L2_VTR_POP_1, vlan_id);
         }
 
         OM::write(uuid, l2itf);

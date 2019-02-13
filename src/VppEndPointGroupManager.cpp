@@ -272,7 +272,7 @@ EndPointGroupManager::mk_group(Runtime &runtime,
             l2_binding l2_upl(*encap_link, bd);
             if (interface::type_t::VXLAN != encap_link->type())
             {
-                l2_upl.set(l2_binding::l2_vtr_op_t::L2_VTR_POP_1, fwd.vnid);
+                l2_upl.set(l2_vtr_op_t::L2_VTR_POP_1, fwd.vnid);
             }
             OM::write(key, l2_upl);
 

@@ -25,10 +25,12 @@ static const std::string XCONNECT_KEY = "__xconnect__";
 
 CrossConnect::xconnect_t::xconnect_t(const std::string &name,
                                      uint16_t vlan,
-                                     std::string ip_address)
+                                     std::string ip_address,
+                                     std::string tag_rewrite)
     : name(name)
     , vlan(vlan)
     , ip(boost::asio::ip::address::from_string(ip_address))
+    , tag_rewrite(tag_rewrite)
 {
 }
 
@@ -36,7 +38,8 @@ std::string
 CrossConnect::xconnect_t::to_string() const
 {
     std::ostringstream s;
-    s << "[itf:" << name << " vlan:" << vlan << " ip:" << ip.to_string() << "]";
+    s << "[itf:" << name << " vlan:" << vlan << " ip:" << ip.to_string()
+      << " tag-rewrite:" << tag_rewrite << "]";
 
     return (s.str());
 }
@@ -127,6 +130,10 @@ CrossConnect::configure_xconnect()
             xitf_ptr = xsubitf.singular();
         }
         VOM::l2_xconnect l2_xconn(*itf_ptr, *xitf_ptr);
+        if ((type == VOM::interface::type_t::ETHERNET ||
+             type == VOM::interface::type_t::AFPACKET) && it.first.vlan &&
+            (it.first.tag_rewrite.find("pop") != std::string::npos))
+            l2_xconn.set(VOM::l2_vtr_op_t::L2_VTR_POP_1, it.first.vlan);
         OM::write(XCONNECT_KEY, l2_xconn);
     }
 }

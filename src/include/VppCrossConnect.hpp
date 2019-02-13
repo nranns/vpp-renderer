@@ -32,11 +32,13 @@ class CrossConnect
     {
         xconnect_t(const std::string &name,
                    uint16_t vlan = 0,
-                   std::string ip_address = "");
+                   std::string ip_address = "",
+                   std::string tag_rewrite = "");
         std::string to_string() const;
         std::string name;
         uint16_t vlan;
         boost::asio::ip::address ip;
+        std::string tag_rewrite;
     };
 
     typedef std::pair<xconnect_t, xconnect_t> xconnect;
@@ -57,7 +59,7 @@ class CrossConnect
      */
     std::list<xconnect> xconnects;
 };
-};
+}; // namespace VPP
 
 /*
  * Local Variables:
