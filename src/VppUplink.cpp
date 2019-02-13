@@ -78,7 +78,10 @@ Uplink::configure_tap(const route::prefix_t &pfx)
     tap_interface itf("tap0", interface::admin_state_t::UP, pfx, tap_mac);
     VOM::OM::write(UPLINK_KEY, itf);
 
-    neighbour tap_nbr(itf, pfx.address(), tap_mac);
+    neighbour::flags_t f = (neighbour::flags_t::STATIC |
+                            neighbour::flags_t::NO_FIB_ENTRY);
+
+    neighbour tap_nbr(itf, pfx.address(), tap_mac, f);
     VOM::OM::write(UPLINK_KEY, tap_nbr);
 
     /*
