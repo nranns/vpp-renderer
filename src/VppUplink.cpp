@@ -134,7 +134,7 @@ Uplink::handle_dhcp_event_i(std::shared_ptr<dhcp_client::lease_t> lease)
 }
 
 std::shared_ptr<SpineProxy>
-Uplink::spine_proxy(uint16_t vnid)
+Uplink::spine_proxy()
 {
     switch (m_agent.getRendererForwardingMode())
     {
@@ -149,7 +149,7 @@ Uplink::spine_proxy(uint16_t vnid)
         m_agent.getMacProxy(mac);
 
         return std::make_shared<SpineProxy>(
-            local_address().to_v4(), v4, v6, mac, vnid);
+            local_address().to_v4(), v4, v6, mac);
         break;
     }
     }

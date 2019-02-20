@@ -195,8 +195,7 @@ EndPointGroupManager::mk_group(Runtime &runtime,
          */
         std::shared_ptr<interface> bvi = mk_bvi(runtime, key, bd, rd);
 
-        std::shared_ptr<SpineProxy> spine_proxy =
-            runtime.uplink.spine_proxy(fwd.vnid);
+        std::shared_ptr<SpineProxy> spine_proxy = runtime.uplink.spine_proxy();
 
         if (spine_proxy)
         {
@@ -204,52 +203,60 @@ EndPointGroupManager::mk_group(Runtime &runtime,
              * TRANSPORT mode
              * then a route domain that uses the v4 and v6 resp
              */
-            gbp_route_domain grd(
-                rd, spine_proxy->mk_v4(key), spine_proxy->mk_v6(key));
-            OM::write(key, grd);
-
-            /*
-             * Add the base GBP-vxlan tunnels that will be used to derive
-             * the learned endpoints
-             */
-            boost::optional<uint32_t> bd_vnid =
-              runtime.policy_manager().getBDVnidForGroup(uri);
             boost::optional<uint32_t> rd_vnid =
               runtime.policy_manager().getRDVnidForGroup(uri);
-            boost::optional<std::string> bd_mcast =
-              runtime.policy_manager().getBDMulticastIPForGroup(uri);
-
-            if (bd_vnid && bd_mcast)
-            {
-              std::shared_ptr<vxlan_tunnel> vt_mc =
-                mk_mcast_tunnel(runtime, key, bd_vnid.get(), bd_mcast.get());
-              l2_binding l2_vxbd(*vt_mc, bd);
-              OM::write(key, l2_vxbd);
-
-              /*
-               * construct a BD that uses the MAC spine proxy as the
-               * UU-fwd interface
-               */
-              gbp_bridge_domain gbd(bd, *bvi, spine_proxy->mk_mac(key), vt_mc);
-              OM::write(key, gbd);
-
-              /*
-               * base tunnel on which the TEPs derive and EPs are learnt
-               */
-              gbp_vxlan gvx_bd(bd_vnid.get(), gbd);
-              OM::write(key, gvx_bd);
-
-              gepg = std::make_shared<gbp_endpoint_group>(fwd.vnid, grd, gbd);
-            }
-            else
-            {
-              VLOGE << "no bridge vnid/mcast: " << uri;
-            }
 
             if (rd_vnid)
             {
+                gbp_route_domain grd(rd,
+                                     spine_proxy->mk_v4(key, rd_vnid.get()),
+                                     spine_proxy->mk_v6(key, rd_vnid.get()));
+                OM::write(key, grd);
+
                 gbp_vxlan gvx_rd(rd_vnid.get(), grd);
                 OM::write(key, gvx_rd);
+
+                /*
+                 * Add the base GBP-vxlan tunnels that will be used to derive
+                 * the learned endpoints
+                 */
+                boost::optional<uint32_t> bd_vnid =
+                    runtime.policy_manager().getBDVnidForGroup(uri);
+                boost::optional<std::string> bd_mcast =
+                    runtime.policy_manager().getBDMulticastIPForGroup(uri);
+
+                if (bd_vnid && bd_mcast)
+                 {
+                     std::shared_ptr<vxlan_tunnel> vt_mc =
+                         mk_mcast_tunnel(runtime, key, bd_vnid.get(), bd_mcast.get());
+                     l2_binding l2_vxbd(*vt_mc, bd);
+                     OM::write(key, l2_vxbd);
+
+                     /*
+                      * construct a BD that uses the MAC spine proxy as the
+                      * UU-fwd interface
+                      */
+                     gbp_bridge_domain gbd(bd, *bvi,
+                                           spine_proxy->mk_mac(key, bd_vnid.get()),
+                                           vt_mc);
+                     OM::write(key, gbd);
+
+                     /*
+                      * base tunnel on which the TEPs derive and EPs are learnt
+                      */
+                     gbp_vxlan gvx_bd(bd_vnid.get(), gbd);
+                     OM::write(key, gvx_bd);
+
+                     gepg = std::make_shared<gbp_endpoint_group>(fwd.vnid, grd, gbd);
+                    }
+                else
+                {
+                    VLOGE << "no bridge-domain vnid/mcast: " << uri;
+                }
+            }
+            else
+            {
+              VLOGE << "no route-domain vnid: " << uri;
             }
         }
         else

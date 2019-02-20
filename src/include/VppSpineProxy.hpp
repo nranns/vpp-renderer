@@ -30,12 +30,11 @@ class SpineProxy
     SpineProxy(const boost::asio::ip::address_v4 &local,
                const boost::asio::ip::address_v4 &remote_v4,
                const boost::asio::ip::address_v4 &remote_v6,
-               const boost::asio::ip::address_v4 &remote_mac,
-               uint16_t vnid);
+               const boost::asio::ip::address_v4 &remote_mac);
 
-    const std::shared_ptr<VOM::vxlan_tunnel> mk_v4(const std::string &key);
-    const std::shared_ptr<VOM::vxlan_tunnel> mk_v6(const std::string &key);
-    const std::shared_ptr<VOM::vxlan_tunnel> mk_mac(const std::string &key);
+    const std::shared_ptr<VOM::vxlan_tunnel> mk_v4(const std::string &key, uint16_t vnid);
+    const std::shared_ptr<VOM::vxlan_tunnel> mk_v6(const std::string &key, uint16_t vnid);
+    const std::shared_ptr<VOM::vxlan_tunnel> mk_mac(const std::string &key, uint16_t vnid);
 
   private:
     const std::shared_ptr<VOM::vxlan_tunnel>
@@ -48,7 +47,6 @@ class SpineProxy
     boost::asio::ip::address_v4 m_remote_v4;
     boost::asio::ip::address_v4 m_remote_v6;
     boost::asio::ip::address_v4 m_remote_mac;
-    uint16_t m_vnid;
 };
 }; // namespace VPP
 

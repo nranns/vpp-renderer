@@ -19,32 +19,30 @@ namespace VPP
 SpineProxy::SpineProxy(const boost::asio::ip::address_v4 &local,
                        const boost::asio::ip::address_v4 &remote_v4,
                        const boost::asio::ip::address_v4 &remote_v6,
-                       const boost::asio::ip::address_v4 &remote_mac,
-                       uint16_t vnid)
+                       const boost::asio::ip::address_v4 &remote_mac)
     : m_local(local)
     , m_remote_v4(remote_v4)
     , m_remote_v6(remote_v6)
     , m_remote_mac(remote_mac)
-    , m_vnid(vnid)
 {
 }
 
 const std::shared_ptr<VOM::vxlan_tunnel>
-SpineProxy::mk_v4(const std::string &key)
+SpineProxy::mk_v4(const std::string &key, uint16_t vnid)
 {
-    return (mk_intf(key, m_local, m_remote_v4, m_vnid));
+    return (mk_intf(key, m_local, m_remote_v4, vnid));
 }
 
 const std::shared_ptr<VOM::vxlan_tunnel>
-SpineProxy::mk_v6(const std::string &key)
+SpineProxy::mk_v6(const std::string &key, uint16_t vnid)
 {
-    return (mk_intf(key, m_local, m_remote_v6, m_vnid));
+    return (mk_intf(key, m_local, m_remote_v6, vnid));
 }
 
 const std::shared_ptr<VOM::vxlan_tunnel>
-SpineProxy::mk_mac(const std::string &key)
+SpineProxy::mk_mac(const std::string &key, uint16_t vnid)
 {
-    return (mk_intf(key, m_local, m_remote_mac, m_vnid));
+    return (mk_intf(key, m_local, m_remote_mac, vnid));
 }
 
 const std::shared_ptr<VOM::vxlan_tunnel>

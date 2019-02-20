@@ -1434,20 +1434,20 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
 
     /*
      * the interfaces to the spine proxy.
+     *   for the BD with VNI=0xAA and the RD VNI=0xBB
      */
     vxlan_tunnel *vt_mac =
-        new vxlan_tunnel(host, spine_mac, 0xA0A, vxlan_tunnel::mode_t::GBP);
+        new vxlan_tunnel(host, spine_mac, 0xAA, vxlan_tunnel::mode_t::GBP);
     WAIT_FOR_MATCH(*vt_mac);
-    vxlan_tunnel *vt_v4 =
-        new vxlan_tunnel(host, spine_v4, 0xA0A, vxlan_tunnel::mode_t::GBP);
-    WAIT_FOR_MATCH(*vt_v4);
-    vxlan_tunnel *vt_v6 =
-        new vxlan_tunnel(host, spine_v6, 0xA0A, vxlan_tunnel::mode_t::GBP);
-    WAIT_FOR_MATCH(*vt_v6);
-
     vxlan_tunnel *vt_mc =
         new vxlan_tunnel(host, bd_mc, 0xAA, vxlan_tunnel::mode_t::GBP);
     WAIT_FOR_MATCH(*vt_mc);
+    vxlan_tunnel *vt_v4 =
+        new vxlan_tunnel(host, spine_v4, 0xBB, vxlan_tunnel::mode_t::GBP);
+    WAIT_FOR_MATCH(*vt_v4);
+    vxlan_tunnel *vt_v6 =
+        new vxlan_tunnel(host, spine_v6, 0xBB, vxlan_tunnel::mode_t::GBP);
+    WAIT_FOR_MATCH(*vt_v6);
 
     gbp_bridge_domain *v_gbd = new gbp_bridge_domain(v_bd, *v_bvi, *vt_mac, *vt_mc);
     WAIT_FOR_MATCH(*v_gbd);
