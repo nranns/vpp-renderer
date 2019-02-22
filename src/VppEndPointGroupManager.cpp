@@ -14,6 +14,7 @@
 
 #include <modelgbp/gbp/BridgeDomain.hpp>
 #include <modelgbp/gbp/RoutingDomain.hpp>
+#include <modelgbp/gbp/UnknownFloodModeEnumT.hpp>
 
 #include <vom/bridge_domain.hpp>
 #include <vom/bridge_domain_arp_entry.hpp>
@@ -207,58 +208,68 @@ EndPointGroupManager::mk_group(Runtime &runtime,
               runtime.policy_manager().getRDVnidForGroup(uri);
             boost::optional<uint32_t> sclass =
               runtime.policy_manager().getSclassForGroup(uri);
+            boost::optional<uint32_t> bd_vnid =
+              runtime.policy_manager().getBDVnidForGroup(uri);
+            boost::optional<std::string> bd_mcast =
+              runtime.policy_manager().getBDMulticastIPForGroup(uri);
 
-            if (rd_vnid && sclass)
+            if (bd_vnid && rd_vnid && sclass && bd_mcast)
             {
-                gbp_route_domain grd(rd,
-                                     spine_proxy->mk_v4(key, rd_vnid.get()),
-                                     spine_proxy->mk_v6(key, rd_vnid.get()));
-                OM::write(key, grd);
+              std::shared_ptr<vxlan_tunnel> vt_mc, vt_v4, vt_v6, vt_mac;
 
-                gbp_vxlan gvx_rd(rd_vnid.get(), grd);
-                OM::write(key, gvx_rd);
+              boost::optional<std::shared_ptr<modelgbp::gbp::FloodDomain>> flood_domain =
+                runtime.policy_manager().getFDForGroup(uri);
 
-                /*
-                 * Add the base GBP-vxlan tunnels that will be used to derive
-                 * the learned endpoints
-                 */
-                boost::optional<uint32_t> bd_vnid =
-                    runtime.policy_manager().getBDVnidForGroup(uri);
-                boost::optional<std::string> bd_mcast =
-                    runtime.policy_manager().getBDMulticastIPForGroup(uri);
-
-                if (bd_vnid && bd_mcast)
-                 {
-                     std::shared_ptr<vxlan_tunnel> vt_mc =
-                         mk_mcast_tunnel(runtime, key, bd_vnid.get(), bd_mcast.get());
-                     l2_binding l2_vxbd(*vt_mc, bd);
-                     OM::write(key, l2_vxbd);
-
-                     /*
-                      * construct a BD that uses the MAC spine proxy as the
-                      * UU-fwd interface
-                      */
-                     gbp_bridge_domain gbd(bd, *bvi,
-                                           spine_proxy->mk_mac(key, bd_vnid.get()),
-                                           vt_mc);
-                     OM::write(key, gbd);
-
-                     /*
-                      * base tunnel on which the TEPs derive and EPs are learnt
-                      */
-                     gbp_vxlan gvx_bd(bd_vnid.get(), gbd);
-                     OM::write(key, gvx_bd);
-
-                     gepg = std::make_shared<gbp_endpoint_group>(fwd.vnid, sclass.get(), grd, gbd);
-                    }
-                else
+              if (flood_domain)
                 {
-                    VLOGE << "no bridge-domain vnid/mcast: " << uri;
+                  if (modelgbp::gbp::UnknownFloodModeEnumT::CONST_HWPROXY ==
+                      flood_domain.get()->getUnknownFloodMode(0))
+                    {
+                      vt_v4 = spine_proxy->mk_v4(key, rd_vnid.get());
+                      vt_v6 = spine_proxy->mk_v6(key, rd_vnid.get());
+                      vt_mac = spine_proxy->mk_mac(key, bd_vnid.get());
+                    }
+                  else if (modelgbp::gbp::UnknownFloodModeEnumT::CONST_DROP ==
+                           flood_domain.get()->getUnknownFloodMode(0))
+                    {
+                      // For Future Use
+                      VLOGW << "UnknownFloodModeEnun=DROP will flood " << uri;
+                    }
                 }
+
+              vt_mc = mk_mcast_tunnel(runtime, key, bd_vnid.get(), bd_mcast.get());
+              l2_binding l2_vxbd(*vt_mc, bd);
+              OM::write(key, l2_vxbd);
+
+              gbp_route_domain grd(rd, vt_v4, vt_v6);
+              OM::write(key, grd);
+
+              gbp_vxlan gvx_rd(rd_vnid.get(), grd);
+              OM::write(key, gvx_rd);
+
+              /*
+               * Add the base GBP-vxlan tunnels that will be used to derive
+               * the learned endpoints
+               */
+
+              /*
+               * construct a BD that uses the MAC spine proxy as the
+               * UU-fwd interface
+               */
+              gbp_bridge_domain gbd(bd, bvi, vt_mac, vt_mc);
+              OM::write(key, gbd);
+
+              /*
+               * base tunnel on which the TEPs derive and EPs are learnt
+               */
+              gbp_vxlan gvx_bd(bd_vnid.get(), gbd);
+              OM::write(key, gvx_bd);
+
+              gepg = std::make_shared<gbp_endpoint_group>(fwd.vnid, sclass.get(), grd, gbd);
             }
             else
             {
-              VLOGE << "no route-domain vnid: " << uri;
+              VLOGE << "no RD/BD vnid or sclass " << uri;
             }
         }
         else

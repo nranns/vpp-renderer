@@ -290,6 +290,7 @@ class VppManagerFixture : public ModbFixture
         config->setMulticastGroupIP("224.1.1.1");
 
         fd0 = space->addGbpFloodDomain("fd0");
+        fd0->setUnknownFloodMode(UnknownFloodModeEnumT::CONST_HWPROXY);
         fd1 = space->addGbpFloodDomain("fd1");
         fd1->setUnknownFloodMode(UnknownFloodModeEnumT::CONST_FLOOD);
         bd0 = space->addGbpBridgeDomain("bd0");
@@ -338,7 +339,10 @@ class VppManagerFixture : public ModbFixture
         epg0 = space->addGbpEpGroup("epg0");
         epg0->addGbpEpGroupToNetworkRSrc()->setTargetBridgeDomain(
             bd0->getURI());
+        epg0->addGbpEpGroupToNetworkRSrc()
+            ->setTargetFloodDomain(fd0->getURI());
         epg0->addGbpeInstContext()->setEncapId(0xA0A);
+        epg0->addGbpeInstContext()->setClassid(0xBA);
 
         epg1 = space->addGbpEpGroup("epg1");
         epg1->addGbpEpGroupToNetworkRSrc()->setTargetBridgeDomain(
@@ -1455,7 +1459,7 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
     gbp_route_domain *v_grd = new gbp_route_domain(v_rd, *vt_v4, *vt_v6);
     WAIT_FOR_MATCH(*v_grd);
 
-    gbp_endpoint_group *v_epg = new gbp_endpoint_group(0xA0A, *v_grd, *v_gbd);
+    gbp_endpoint_group *v_epg = new gbp_endpoint_group(0xA0A, 0xBA, *v_grd, *v_gbd);
     WAIT_FOR_MATCH(*v_epg);
 
     inspector.handle_input("all", std::cout);
