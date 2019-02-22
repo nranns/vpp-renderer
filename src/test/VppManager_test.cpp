@@ -20,7 +20,8 @@
 #include <modelgbp/gbp/SecGroup.hpp>
 
 #include <vom/acl_ethertype.hpp>
-#include <vom/acl_list.hpp>
+#include <vom/acl_l3_list.hpp>
+#include <vom/acl_l2_list.hpp>
 #include <vom/bridge_domain.hpp>
 #include <vom/bridge_domain_arp_entry.hpp>
 #include <vom/bridge_domain_entry.hpp>

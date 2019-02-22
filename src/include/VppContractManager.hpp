@@ -14,7 +14,7 @@
 
 #include "VppIdGen.hpp"
 
-#include <vom/acl_list.hpp>
+#include <vom/acl_l3_rule.hpp>
 
 namespace VPP
 {

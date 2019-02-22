@@ -14,7 +14,7 @@
 #include <opflexagent/EndpointManager.h>
 
 #include <vom/acl_ethertype.hpp>
-#include <vom/acl_list.hpp>
+#include <vom/acl_l3_list.hpp>
 
 using namespace VOM;
 
