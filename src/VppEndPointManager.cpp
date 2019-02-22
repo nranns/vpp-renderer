@@ -685,7 +685,8 @@ EndPointManager::handle_update_i(const std::string &uuid, bool is_external)
                             catch (EndPointGroupManager::NoFowardInfoException
                                        &nofwd)
                             {
-                                VLOGD << "Endpoint Floating IP no fwd " << uuid;
+                                VLOGD << "Endpoint Floating IP no fwd: "
+                                      << nofwd.reason << " : " << uuid;
                             }
                         }
                     }

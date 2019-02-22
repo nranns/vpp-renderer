@@ -37,6 +37,11 @@ class EndPointGroupManager
     };
     struct NoFowardInfoException
     {
+        NoFowardInfoException(std::string s):
+            reason(s)
+        {}
+
+        std::string reason;
     };
 
     EndPointGroupManager(Runtime &runtime);

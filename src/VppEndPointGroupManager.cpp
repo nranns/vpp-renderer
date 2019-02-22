@@ -53,7 +53,7 @@ EndPointGroupManager::get_fwd_info(
 
     if (!epgVnid)
     {
-        throw NoFowardInfoException();
+        throw NoFowardInfoException("No EPG VNID");
     }
     fwd.vnid = epgVnid.get();
 
@@ -63,7 +63,7 @@ EndPointGroupManager::get_fwd_info(
         polMgr.getBDForGroup(uri);
     if (!epgBd)
     {
-        throw NoFowardInfoException();
+        throw NoFowardInfoException("No BD for EPG");
     }
 
     if (epgRd)
@@ -299,7 +299,8 @@ EndPointGroupManager::mk_group(Runtime &runtime,
     }
     catch (EndPointGroupManager::NoFowardInfoException &nofwd)
     {
-        VLOGD << "NOT Updating endpoint-group:" << uri;
+        VLOGD << "NOT Updating endpoint-group: "
+              << nofwd.reason << " : " << uri;
     }
 
     return gepg;
