@@ -44,6 +44,13 @@ EndPointGroupManager::EndPointGroupManager(Runtime &runtime)
 {
 }
 
+EndPointGroupManager::ForwardInfo::ForwardInfo()
+    : vnid(0xfefefefe)
+    , rdId(0xfefefefe)
+    , bdId(0xfefefefe)
+{
+}
+
 EndPointGroupManager::ForwardInfo
 EndPointGroupManager::get_fwd_info(
     Runtime &runtime, const opflex::modb::URI &uri) throw(NoFowardInfoException)

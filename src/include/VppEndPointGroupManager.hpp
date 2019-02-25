@@ -29,6 +29,9 @@ class EndPointGroupManager
   public:
     struct ForwardInfo
     {
+        ForwardInfo();
+        ~ForwardInfo() = default;
+
         uint32_t vnid;
         uint32_t rdId;
         uint32_t bdId;
