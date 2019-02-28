@@ -69,10 +69,7 @@ EndPointGroupManager::get_fwd_info(
         polMgr.getRDForGroup(uri);
     boost::optional<std::shared_ptr<modelgbp::gbp::BridgeDomain>> epgBd =
         polMgr.getBDForGroup(uri);
-    if (!epgBd)
-    {
-        throw NoFowardInfoException("No BD for EPG");
-    }
+
 
     if (epgRd)
     {
@@ -80,12 +77,23 @@ EndPointGroupManager::get_fwd_info(
         if (fwd.rdURI)
             fwd.rdId = runtime.id_gen.get(
                 modelgbp::gbp::RoutingDomain::CLASS_ID, fwd.rdURI.get());
+        else
+          throw NoFowardInfoException("No RD-URI for EPG");
     }
+    else
+    {
+      throw NoFowardInfoException("No RD for EPG");
+    }
+
     if (epgBd)
     {
         fwd.bdURI = epgBd.get()->getURI();
         fwd.bdId = runtime.id_gen.get(modelgbp::gbp::BridgeDomain::CLASS_ID,
                                       fwd.bdURI.get());
+    }
+    else
+    {
+        throw NoFowardInfoException("No BD for EPG");
     }
     return fwd;
 }
@@ -406,9 +414,19 @@ EndPointGroupManager::handle_update(const opflex::modb::URI &epgURI)
              */
             route::prefix_t pfx(sn->getAddress().get(),
                                 sn->getPrefixLen().get());
-            gbp_subnet gs(
-                *rd, pfx.low(), gbp_subnet::type_t::STITCHED_INTERNAL);
-            OM::write(epg_uuid, gs);
+
+            if (gepg->get_route_domain()->get_ip4_uu_fwd())
+            {
+                gbp_subnet gs(*rd, pfx.low(),
+                              gbp_subnet::type_t::TRANSPORT);
+                OM::write(epg_uuid, gs);
+            }
+            else
+            {
+                gbp_subnet gs(*rd, pfx.low(),
+                              gbp_subnet::type_t::STITCHED_INTERNAL);
+                OM::write(epg_uuid, gs);
+            }
         }
     }
 }
