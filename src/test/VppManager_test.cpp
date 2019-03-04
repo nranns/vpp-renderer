@@ -30,6 +30,7 @@
 #include <vom/gbp_endpoint.hpp>
 #include <vom/gbp_endpoint_group.hpp>
 #include <vom/gbp_ext_itf.hpp>
+#include <vom/gbp_global.hpp>
 #include <vom/gbp_subnet.hpp>
 #include <vom/gbp_vxlan.hpp>
 #include <vom/hw.hpp>
@@ -300,6 +301,8 @@ class VppManagerFixture : public ModbFixture
         bd1 = space->addGbpBridgeDomain("bd1");
         rd0 = space->addGbpRoutingDomain("rd0");
         rd0->addGbpeInstContext()->setEncapId(0xBB);
+        ret_pol0 = space->addGbpeEndpointRetention("ret-pol0");
+        ret_pol0->setRemoteEpAgingInterval(90);
 
         fd0->addGbpFloodDomainToNetworkRSrc()->setTargetBridgeDomain(
             bd0->getURI());
@@ -343,6 +346,7 @@ class VppManagerFixture : public ModbFixture
             ->setTargetFloodDomain(fd0->getURI());
         epg0->addGbpeInstContext()->setEncapId(0xA0A);
         epg0->addGbpeInstContext()->setClassid(0xBA);
+        epg0->addGbpeInstContext()->addGbpeInstContextToEpRetentionRSrc()->setTargetEndpointRetention(ret_pol0->getURI());
 
         epg1 = space->addGbpEpGroup("epg1");
         epg1->addGbpEpGroupToNetworkRSrc()->setTargetBridgeDomain(
@@ -606,6 +610,7 @@ class VppManagerFixture : public ModbFixture
     std::shared_ptr<modelgbp::gbp::L3ExternalDomain> ext_dom;
     std::shared_ptr<modelgbp::gbp::L3ExternalNetwork> ext_net0;
     std::shared_ptr<modelgbp::gbp::L3ExternalNetwork> ext_net1;
+    std::shared_ptr<modelgbp::gbpe::EndpointRetention> ret_pol0;
 
     mac_address_t vMac;
     PolicyManager &policyMgr;
@@ -1437,6 +1442,9 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
 
     WAIT_FOR_MATCH(*v_bvi);
 
+    // gbp_global gg(boost::asio::ip::host_name(), 90);
+    // WAIT_FOR_MATCH(gg);
+
     /*
      * the interfaces to the spine proxy.
      *   for the BD with VNI=0xAA and the RD VNI=0xBB
@@ -1445,7 +1453,7 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
         new vxlan_tunnel(host, spine_mac, 0xAA, vxlan_tunnel::mode_t::GBP);
     WAIT_FOR_MATCH(*vt_mac);
     vxlan_tunnel *vt_mc =
-        new vxlan_tunnel(host, bd_mc, 0xAA, vxlan_tunnel::mode_t::GBP);
+        new vxlan_tunnel(host, bd_mc, 0xAA, v_sub, vxlan_tunnel::mode_t::GBP);
     WAIT_FOR_MATCH(*vt_mc);
     vxlan_tunnel *vt_v4 =
         new vxlan_tunnel(host, spine_v4, 0xBB, vxlan_tunnel::mode_t::GBP);

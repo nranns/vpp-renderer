@@ -20,6 +20,7 @@
 #include <vom/bridge_domain_arp_entry.hpp>
 #include <vom/bridge_domain_entry.hpp>
 #include <vom/gbp_endpoint_group.hpp>
+#include <vom/gbp_global.hpp>
 #include <vom/gbp_subnet.hpp>
 #include <vom/gbp_vxlan.hpp>
 #include <vom/igmp_binding.hpp>
@@ -197,6 +198,16 @@ EndPointGroupManager::mk_group(Runtime &runtime,
         EndPointGroupManager::ForwardInfo fwd;
 
         fwd = get_fwd_info(runtime, uri);
+
+        boost::optional<std::shared_ptr<modelgbp::gbpe::EndpointRetention>> ret_pol =
+            runtime.policy_manager().getL2EPRetentionPolicyForGroup(uri);
+
+        if (ret_pol)
+        {
+            gbp_global gg(runtime.uplink.system_name(),
+                          ret_pol.get()->getRemoteEpAgingInterval(120));
+            OM::write(key, gg);
+        }
 
         /*
          * Construct the Bridge and routing Domains
@@ -415,18 +426,11 @@ EndPointGroupManager::handle_update(const opflex::modb::URI &epgURI)
             route::prefix_t pfx(sn->getAddress().get(),
                                 sn->getPrefixLen().get());
 
-            if (gepg->get_route_domain()->get_ip4_uu_fwd())
-            {
-                gbp_subnet gs(*rd, pfx.low(),
-                              gbp_subnet::type_t::TRANSPORT);
-                OM::write(epg_uuid, gs);
-            }
-            else
-            {
-                gbp_subnet gs(*rd, pfx.low(),
-                              gbp_subnet::type_t::STITCHED_INTERNAL);
-                OM::write(epg_uuid, gs);
-            }
+            gbp_subnet gs(*rd, pfx.low(),
+                          (gepg->get_route_domain()->get_ip4_uu_fwd() ?
+                           gbp_subnet::type_t::TRANSPORT :
+                           gbp_subnet::type_t::STITCHED_INTERNAL));
+            OM::write(epg_uuid, gs);
         }
     }
 }

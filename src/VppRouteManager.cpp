@@ -151,8 +151,10 @@ RouteManager::handle_domain_update(const opflex::modb::URI &uri)
          * add a route for the subnet in VPP's route-domain via
          * the EPG's uplink, DVR styleee
          */
-        gbp_subnet gs(
-            rd, {addr, sn.second}, gbp_subnet::type_t::STITCHED_INTERNAL);
+        gbp_subnet gs(rd, {addr, sn.second},
+                      (m_runtime.is_transport_mode ?
+                       gbp_subnet::type_t::TRANSPORT :
+                       gbp_subnet::type_t::STITCHED_INTERNAL));
         OM::write(rd_uuid, gs);
     }
 
@@ -271,7 +273,9 @@ RouteManager::handle_domain_update(const opflex::modb::URI &uri)
                      */
                     gbp_subnet gs(rd,
                                   {addr, extSub->getPrefixLen().get()},
-                                  gbp_subnet::type_t::STITCHED_INTERNAL);
+                                  (m_runtime.is_transport_mode ?
+                                   gbp_subnet::type_t::TRANSPORT :
+                                   gbp_subnet::type_t::STITCHED_INTERNAL));
                     OM::write(rd_uuid, gs);
                 }
             }

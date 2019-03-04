@@ -49,6 +49,7 @@ VppManager::VppManager(opflexagent::Agent &agent_,
     VOM::HW::init(q, sr);
     VOM::OM::init();
 
+    m_runtime.system_name = boost::asio::ip::host_name();
     m_runtime.agent.getFramework().registerPeerStatusListener(this);
 }
 
@@ -66,6 +67,8 @@ VppManager::start()
     /*
      * create the update delegators
      */
+    m_runtime.is_transport_mode =
+        (opflex::ofcore::OFConstants::TRANSPORT_MODE == m_runtime.agent.getRendererForwardingMode());
     m_epm = std::make_shared<EndPointManager>(m_runtime);
     m_epgm = std::make_shared<EndPointGroupManager>(m_runtime);
     m_sgm = std::make_shared<SecurityGroupManager>(m_runtime.agent);
@@ -155,7 +158,7 @@ VppManager::handleUplinkConfigure()
 {
     if (stopping) return;
 
-    m_runtime.uplink.configure(boost::asio::ip::host_name());
+    m_runtime.uplink.configure(m_runtime.system_name);
 }
 
 void

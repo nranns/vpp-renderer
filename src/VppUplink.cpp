@@ -40,6 +40,11 @@ Uplink::Uplink(opflexagent::Agent &agent)
 {
 }
 
+const std::string & Uplink::system_name() const
+{
+    return m_system_name;
+}
+
 std::shared_ptr<VOM::interface>
 Uplink::mk_interface(const std::string &uuid, uint32_t vnid)
 {
@@ -171,8 +176,10 @@ Uplink::local_interface() const
 void
 Uplink::configure(const std::string &fqdn)
 {
+    m_system_name = fqdn;
 
-    LOG(opflexagent::INFO) << "configure";
+    LOG(opflexagent::INFO) << "configure:" << m_system_name;
+
     /*
      * Consruct the uplink physical, so we now 'own' it
      */
@@ -219,7 +226,7 @@ Uplink::configure(const std::string &fqdn)
     /**
      * Enable LLDP on this uplionk
      */
-    lldp_global lg(fqdn, 5, 2);
+    lldp_global lg(m_system_name, 5, 2);
     OM::write(UPLINK_KEY, lg);
     lldp_binding lb(*m_uplink, "uplink-interface");
     OM::write(UPLINK_KEY, lb);

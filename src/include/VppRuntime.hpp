@@ -49,6 +49,16 @@ struct Runtime
      */
     std::shared_ptr<VirtualRouter> vr;
 
+    /**
+     * System Name
+     */
+    std::string system_name;
+
+    /**
+     * Transport or stitch mode
+     */
+    bool is_transport_mode;
+
   private:
     Runtime(const Runtime &);
 };
