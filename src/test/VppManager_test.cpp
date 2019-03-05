@@ -30,7 +30,6 @@
 #include <vom/gbp_endpoint.hpp>
 #include <vom/gbp_endpoint_group.hpp>
 #include <vom/gbp_ext_itf.hpp>
-#include <vom/gbp_global.hpp>
 #include <vom/gbp_subnet.hpp>
 #include <vom/gbp_vxlan.hpp>
 #include <vom/hw.hpp>
@@ -745,6 +744,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_group_add_del, VppStitchedManagerFixture)
 
     gbp_endpoint_group *v_epg0 =
         new gbp_endpoint_group(0xA0A, v_upl_epg0, v_rd, *v_gbd0);
+    v_epg0->set({120});
     WAIT_FOR_MATCH(*v_epg0);
 
     /*
@@ -814,6 +814,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_group_add_del, VppStitchedManagerFixture)
     WAIT_FOR_MATCH(*v_gbd1);
     gbp_endpoint_group *v_epg1 =
         new gbp_endpoint_group(0xA0B, v_upl_epg1, v_rd, *v_gbd1);
+    v_epg1->set({120});
     WAIT_FOR_MATCH(*v_epg1);
 
     WAIT_FOR_MATCH(gbp_subnet(v_rd,
@@ -948,6 +949,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppStitchedManagerFixture)
 
     gbp_endpoint_group *v_epg0 =
         new gbp_endpoint_group(0xA0A, v_upl_epg0, v_rd, *v_gbd0);
+    v_epg0->set({120});
     WAIT_FOR_MATCH(*v_epg0);
 
     /*
@@ -989,6 +991,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppStitchedManagerFixture)
     WAIT_FOR_MATCH(*v_gbd1);
     gbp_endpoint_group *v_epg1 =
         new gbp_endpoint_group(0xA0B, v_upl_epg1, v_rd, *v_gbd1);
+    v_epg1->set({120});
     WAIT_FOR_MATCH(*v_epg1);
 
     WAIT_FOR_MATCH(gbp_endpoint(*v_itf_ep2, getEPIps(ep2), v_mac_ep2, *v_epg1));
@@ -1138,6 +1141,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_nat_add_del, VppStitchedManagerFixture)
     WAIT_FOR_MATCH(*v_gbd0);
     gbp_endpoint_group *v_epg0 =
         new gbp_endpoint_group(0xA0A, v_upl_epg0, v_rd, *v_gbd0);
+    v_epg0->set({120});
     WAIT_FOR_MATCH(*v_epg0);
 
     sub_interface v_upl_epg1(v_phy, interface::admin_state_t::UP, 0xA0B);
@@ -1152,6 +1156,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_nat_add_del, VppStitchedManagerFixture)
     WAIT_FOR_MATCH(*v_gbd1);
     gbp_endpoint_group *v_epg1 =
         new gbp_endpoint_group(0xA0B, v_upl_epg1, v_rd, *v_gbd1);
+    v_epg1->set({120});
     WAIT_FOR_MATCH(*v_epg1);
 
     bridge_domain v_bd_epg_nat(102, bridge_domain::learning_mode_t::OFF);
@@ -1171,6 +1176,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_nat_add_del, VppStitchedManagerFixture)
     WAIT_FOR_MATCH(*v_gbd_nat);
     gbp_endpoint_group *v_epg_nat =
         new gbp_endpoint_group(0x424, v_upl_epg_nat, v_rd_nat, *v_gbd_nat);
+    v_epg_nat->set({120});
     WAIT_FOR_MATCH(*v_epg_nat);
     interface *v_bvi_epg_nat = new interface("bvi-102",
                                              interface::type_t::BVI,
@@ -1442,9 +1448,6 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
 
     WAIT_FOR_MATCH(*v_bvi);
 
-    // gbp_global gg(boost::asio::ip::host_name(), 90);
-    // WAIT_FOR_MATCH(gg);
-
     /*
      * the interfaces to the spine proxy.
      *   for the BD with VNI=0xAA and the RD VNI=0xBB
@@ -1468,6 +1471,7 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
     WAIT_FOR_MATCH(*v_grd);
 
     gbp_endpoint_group *v_epg = new gbp_endpoint_group(0xA0A, 0xBA, *v_grd, *v_gbd);
+    v_epg->set({120});
     WAIT_FOR_MATCH(*v_epg);
 
     inspector.handle_input("all", std::cout);

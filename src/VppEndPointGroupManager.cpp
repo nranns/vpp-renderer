@@ -20,7 +20,6 @@
 #include <vom/bridge_domain_arp_entry.hpp>
 #include <vom/bridge_domain_entry.hpp>
 #include <vom/gbp_endpoint_group.hpp>
-#include <vom/gbp_global.hpp>
 #include <vom/gbp_subnet.hpp>
 #include <vom/gbp_vxlan.hpp>
 #include <vom/igmp_binding.hpp>
@@ -195,7 +194,11 @@ EndPointGroupManager::mk_group(Runtime &runtime,
 
     try
     {
+        /*
+         * default retention policy of 2 minutes.
+         */
         EndPointGroupManager::ForwardInfo fwd;
+        gbp_endpoint_group::retention_t retention(120);
 
         fwd = get_fwd_info(runtime, uri);
 
@@ -204,9 +207,8 @@ EndPointGroupManager::mk_group(Runtime &runtime,
 
         if (ret_pol)
         {
-            gbp_global gg(runtime.uplink.system_name(),
-                          ret_pol.get()->getRemoteEpAgingInterval(120));
-            OM::write(key, gg);
+            retention.remote_ep_timeout =
+                ret_pol.get()->getRemoteEpAgingInterval(120);
         }
 
         /*
@@ -334,6 +336,7 @@ EndPointGroupManager::mk_group(Runtime &runtime,
         /*
          * GBP Endpoint Group
          */
+        gepg->set(retention);
         OM::write(key, *gepg);
     }
     catch (EndPointGroupManager::NoFowardInfoException &nofwd)
