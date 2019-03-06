@@ -32,6 +32,7 @@ class EndPointGroupManager
         ForwardInfo();
         ~ForwardInfo() = default;
 
+        uint16_t sclass;
         uint32_t vnid;
         uint32_t rdId;
         uint32_t bdId;

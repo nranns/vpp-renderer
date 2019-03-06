@@ -351,6 +351,7 @@ class VppManagerFixture : public ModbFixture
         epg1->addGbpEpGroupToNetworkRSrc()->setTargetBridgeDomain(
             bd1->getURI());
         epg1->addGbpeInstContext()->setEncapId(0xA0B);
+        epg1->addGbpeInstContext()->setClassid(0xBB);
 
         epg2 = space->addGbpEpGroup("epg2");
         epg3 = space->addGbpEpGroup("epg3");
@@ -492,6 +493,7 @@ class VppManagerFixture : public ModbFixture
 
         epg_nat = common->addGbpEpGroup("nat-epg");
         epg_nat->addGbpeInstContext()->setEncapId(0x424);
+        epg_nat->addGbpeInstContext()->setClassid(0x44);
         epg_nat->addGbpEpGroupToNetworkRSrc()->setTargetFloodDomain(
             fd_ext->getURI());
 
@@ -743,7 +745,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_group_add_del, VppStitchedManagerFixture)
     WAIT_FOR_MATCH(*v_gbd0);
 
     gbp_endpoint_group *v_epg0 =
-        new gbp_endpoint_group(0xA0A, v_upl_epg0, v_rd, *v_gbd0);
+        new gbp_endpoint_group(0xA0A, 0xBA, v_upl_epg0, v_rd, *v_gbd0);
     v_epg0->set({120});
     WAIT_FOR_MATCH(*v_epg0);
 
@@ -813,7 +815,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_group_add_del, VppStitchedManagerFixture)
     gbp_bridge_domain *v_gbd1 = new gbp_bridge_domain(v_bd_epg1, *v_bvi_epg1);
     WAIT_FOR_MATCH(*v_gbd1);
     gbp_endpoint_group *v_epg1 =
-        new gbp_endpoint_group(0xA0B, v_upl_epg1, v_rd, *v_gbd1);
+        new gbp_endpoint_group(0xA0B, 0xBB, v_upl_epg1, v_rd, *v_gbd1);
     v_epg1->set({120});
     WAIT_FOR_MATCH(*v_epg1);
 
@@ -948,7 +950,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppStitchedManagerFixture)
     WAIT_FOR_MATCH(*v_gbd0);
 
     gbp_endpoint_group *v_epg0 =
-        new gbp_endpoint_group(0xA0A, v_upl_epg0, v_rd, *v_gbd0);
+        new gbp_endpoint_group(0xA0A, 0xBA, v_upl_epg0, v_rd, *v_gbd0);
     v_epg0->set({120});
     WAIT_FOR_MATCH(*v_epg0);
 
@@ -990,7 +992,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppStitchedManagerFixture)
     gbp_bridge_domain *v_gbd1 = new gbp_bridge_domain(v_bd_epg1, *v_bvi_epg1);
     WAIT_FOR_MATCH(*v_gbd1);
     gbp_endpoint_group *v_epg1 =
-        new gbp_endpoint_group(0xA0B, v_upl_epg1, v_rd, *v_gbd1);
+        new gbp_endpoint_group(0xA0B, 0xBB, v_upl_epg1, v_rd, *v_gbd1);
     v_epg1->set({120});
     WAIT_FOR_MATCH(*v_epg1);
 
@@ -1140,7 +1142,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_nat_add_del, VppStitchedManagerFixture)
     gbp_bridge_domain *v_gbd0 = new gbp_bridge_domain(v_bd_epg0, *v_bvi_epg0);
     WAIT_FOR_MATCH(*v_gbd0);
     gbp_endpoint_group *v_epg0 =
-        new gbp_endpoint_group(0xA0A, v_upl_epg0, v_rd, *v_gbd0);
+        new gbp_endpoint_group(0xA0A, 0xBA, v_upl_epg0, v_rd, *v_gbd0);
     v_epg0->set({120});
     WAIT_FOR_MATCH(*v_epg0);
 
@@ -1155,7 +1157,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_nat_add_del, VppStitchedManagerFixture)
     gbp_bridge_domain *v_gbd1 = new gbp_bridge_domain(v_bd_epg1, *v_bvi_epg1);
     WAIT_FOR_MATCH(*v_gbd1);
     gbp_endpoint_group *v_epg1 =
-        new gbp_endpoint_group(0xA0B, v_upl_epg1, v_rd, *v_gbd1);
+        new gbp_endpoint_group(0xA0B, 0xBB, v_upl_epg1, v_rd, *v_gbd1);
     v_epg1->set({120});
     WAIT_FOR_MATCH(*v_epg1);
 
@@ -1175,7 +1177,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_nat_add_del, VppStitchedManagerFixture)
         new gbp_bridge_domain(v_bd_epg_nat, *v_bvi_nat);
     WAIT_FOR_MATCH(*v_gbd_nat);
     gbp_endpoint_group *v_epg_nat =
-        new gbp_endpoint_group(0x424, v_upl_epg_nat, v_rd_nat, *v_gbd_nat);
+        new gbp_endpoint_group(0x424, 0x44, v_upl_epg_nat, v_rd_nat, *v_gbd_nat);
     v_epg_nat->set({120});
     WAIT_FOR_MATCH(*v_epg_nat);
     interface *v_bvi_epg_nat = new interface("bvi-102",
@@ -1211,7 +1213,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_nat_add_del, VppStitchedManagerFixture)
                                direction_t::INPUT,
                                l3_proto_t::IPV6,
                                nat_binding::zone_t::INSIDE));
-    interface v_recirc_itf("recirc-" + std::to_string(0xA0A),
+    interface v_recirc_itf("recirc-" + std::to_string(0xBA),
                            interface::type_t::LOOPBACK,
                            interface::admin_state_t::UP,
                            v_rd);

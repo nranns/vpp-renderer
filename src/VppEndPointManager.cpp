@@ -574,7 +574,7 @@ EndPointManager::handle_update_i(const std::string &uuid, bool is_external)
                          * the out2in translation applied.
                          */
                         interface recirc_itf("recirc-" +
-                                                 std::to_string(gepg->id()),
+                                                 std::to_string(gepg->sclass()),
                                              interface::type_t::LOOPBACK,
                                              interface::admin_state_t::UP,
                                              *rd);

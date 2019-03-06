@@ -65,6 +65,14 @@ EndPointGroupManager::get_fwd_info(
     }
     fwd.vnid = epgVnid.get();
 
+    boost::optional<uint32_t> sclass = polMgr.getSclassForGroup(uri);
+
+    if (!sclass)
+    {
+        throw NoFowardInfoException("No EPG Sclass");
+    }
+    fwd.sclass = sclass.get();
+
     boost::optional<std::shared_ptr<modelgbp::gbp::RoutingDomain>> epgRd =
         polMgr.getRDForGroup(uri);
     boost::optional<std::shared_ptr<modelgbp::gbp::BridgeDomain>> epgBd =
@@ -234,14 +242,12 @@ EndPointGroupManager::mk_group(Runtime &runtime,
              */
             boost::optional<uint32_t> rd_vnid =
               runtime.policy_manager().getRDVnidForGroup(uri);
-            boost::optional<uint32_t> sclass =
-              runtime.policy_manager().getSclassForGroup(uri);
             boost::optional<uint32_t> bd_vnid =
               runtime.policy_manager().getBDVnidForGroup(uri);
             boost::optional<std::string> bd_mcast =
               runtime.policy_manager().getBDMulticastIPForGroup(uri);
 
-            if (bd_vnid && rd_vnid && sclass && bd_mcast)
+            if (bd_vnid && rd_vnid && bd_mcast)
             {
               std::shared_ptr<vxlan_tunnel> vt_mc, vt_v4, vt_v6, vt_mac;
 
@@ -295,7 +301,7 @@ EndPointGroupManager::mk_group(Runtime &runtime,
                                runtime.uplink.local_address().to_v4());
               OM::write(key, gvx_bd);
 
-              gepg = std::make_shared<gbp_endpoint_group>(fwd.vnid, sclass.get(), grd, gbd);
+              gepg = std::make_shared<gbp_endpoint_group>(fwd.vnid, fwd.sclass, grd, gbd);
             }
             else
             {
@@ -333,7 +339,7 @@ EndPointGroupManager::mk_group(Runtime &runtime,
             OM::write(key, grd);
 
             gepg = std::make_shared<gbp_endpoint_group>(
-                fwd.vnid, *encap_link, grd, gbd);
+                fwd.vnid, fwd.sclass, *encap_link, grd, gbd);
         }
         /*
          * GBP Endpoint Group

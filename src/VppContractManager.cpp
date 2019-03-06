@@ -34,31 +34,26 @@ ContractManager::ContractManager(opflexagent::Agent &agent, IdGen &id_gen)
 }
 
 static void
-get_group_vnid(opflexagent::Agent &agent,
-               IdGen &id_gen,
-               const std::unordered_set<opflex::modb::URI> &uris,
-               std::unordered_set<uint32_t> &ids)
+get_group_sclass(opflexagent::Agent &agent,
+                 const std::unordered_set<opflex::modb::URI> &uris,
+                 std::unordered_set<uint32_t> &ids)
 {
     opflexagent::PolicyManager &pm = agent.getPolicyManager();
     for (auto &u : uris)
     {
-        boost::optional<uint32_t> vnid = pm.getVnidForGroup(u);
-        boost::optional<std::shared_ptr<modelgbp::gbp::RoutingDomain>> rd;
-        if (vnid)
+        boost::optional<uint32_t> sclass = pm.getVnidForGroup(u);
+
+        if (!sclass)
         {
-            rd = pm.getRDForGroup(u);
+            sclass = pm.getSclassForExternalNet(u);
+        }
+        if (sclass)
+        {
+            ids.insert(sclass.get());
         }
         else
         {
-            rd = pm.getRDForL3ExtNet(u);
-            if (rd)
-            {
-                vnid = id_gen.get_ext_net_vnid(u);
-            }
-        }
-        if (vnid && rd)
-        {
-            ids.insert(vnid.get());
+            VLOGW << "No Sclass for: " << u;
         }
     }
 }
@@ -116,9 +111,9 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
     typedef std::unordered_set<uint32_t> id_set_t;
     id_set_t provIds;
     id_set_t consIds;
-    id_set_t intraIds;
-    get_group_vnid(m_agent, m_id_gen, provURIs, provIds);
-    get_group_vnid(m_agent, m_id_gen, consURIs, consIds);
+
+    get_group_sclass(m_agent, provURIs, provIds);
+    get_group_sclass(m_agent, consURIs, consIds);
 
     opflexagent::PolicyManager::rule_list_t rules;
     polMgr.getContractRules(uri, rules);
@@ -184,7 +179,7 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
             in_rules.insert(l3_rule);
         }
 
-        if (rule->getRedirect())
+        if (rule->getRedirect() && rule->getRedirectDestGrpURI())
         {
             opflexagent::PolicyManager::redir_dest_list_t redirList;
             gbp_rule::next_hops_t nhs;
