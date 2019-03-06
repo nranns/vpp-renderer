@@ -1476,8 +1476,8 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
 
     inspector.handle_input("all", std::cout);
 
-    WAIT_FOR_MATCH(gbp_vxlan(0xAA, *v_gbd));
-    WAIT_FOR_MATCH(gbp_vxlan(0xBB, *v_grd));
+    WAIT_FOR_MATCH(gbp_vxlan(0xAA, *v_gbd, host.to_v4()));
+    WAIT_FOR_MATCH(gbp_vxlan(0xBB, *v_grd, host.to_v4()));
 
     /*
      * mcast vxlan tunnels bound to BD

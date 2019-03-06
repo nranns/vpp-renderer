@@ -272,7 +272,8 @@ EndPointGroupManager::mk_group(Runtime &runtime,
               gbp_route_domain grd(rd, vt_v4, vt_v6);
               OM::write(key, grd);
 
-              gbp_vxlan gvx_rd(rd_vnid.get(), grd);
+              gbp_vxlan gvx_rd(rd_vnid.get(), grd,
+                               runtime.uplink.local_address().to_v4());
               OM::write(key, gvx_rd);
 
               /*
@@ -290,7 +291,8 @@ EndPointGroupManager::mk_group(Runtime &runtime,
               /*
                * base tunnel on which the TEPs derive and EPs are learnt
                */
-              gbp_vxlan gvx_bd(bd_vnid.get(), gbd);
+              gbp_vxlan gvx_bd(bd_vnid.get(), gbd,
+                               runtime.uplink.local_address().to_v4());
               OM::write(key, gvx_bd);
 
               gepg = std::make_shared<gbp_endpoint_group>(fwd.vnid, sclass.get(), grd, gbd);
