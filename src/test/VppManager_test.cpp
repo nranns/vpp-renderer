@@ -1562,22 +1562,37 @@ BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
     gbp_route_domain *v_grd = new gbp_route_domain(v_rd);
     WAIT_FOR_MATCH(*v_grd);
 
-    /* 0x80000064 is the internally generated EPG-ID */
-    gbp_endpoint_group *v_epg0 =
+    /* 0x80000064 is the internally generated EPG-ID for each Ext-net */
+    gbp_endpoint_group *v_net_epg0 =
       new gbp_endpoint_group(0x80000065, 1234, *v_grd, *v_gbd);
-    WAIT_FOR_MATCH(*v_epg0);
-    gbp_endpoint_group *v_epg1 =
+    WAIT_FOR_MATCH(*v_net_epg0);
+    gbp_endpoint_group *v_net_epg1 =
       new gbp_endpoint_group(0x80000064, 1235, *v_grd, *v_gbd);
-    WAIT_FOR_MATCH(*v_epg1);
+    WAIT_FOR_MATCH(*v_net_epg1);
 
     gbp_ext_itf *v_ei = new gbp_ext_itf(*v_bvi, *v_gbd, *v_grd);
     WAIT_FOR_MATCH(*v_ei);
 
-    WAIT_FOR_MATCH(gbp_subnet(v_rd, {"105.0.0.0", 24}, *v_epg0));
-    WAIT_FOR_MATCH(gbp_subnet(v_rd, {"106.0.0.0", 24}, *v_epg0));
-    WAIT_FOR_MATCH(gbp_subnet(v_rd, {"107.0.0.0", 24}, *v_epg1));
-    WAIT_FOR_MATCH(gbp_subnet(v_rd, {"108.0.0.0", 24}, *v_epg1));
+    WAIT_FOR_MATCH(gbp_subnet(v_rd, {"105.0.0.0", 24}, *v_net_epg0));
+    WAIT_FOR_MATCH(gbp_subnet(v_rd, {"106.0.0.0", 24}, *v_net_epg0));
+    WAIT_FOR_MATCH(gbp_subnet(v_rd, {"107.0.0.0", 24}, *v_net_epg1));
+    WAIT_FOR_MATCH(gbp_subnet(v_rd, {"108.0.0.0", 24}, *v_net_epg1));
 
+    /* Add an EP */
+    vppManager.endpointUpdated(ext_ep0->getUUID());
+
+    mac_address_t v_mac_ext_ep0("00:00:00:00:0E:00");
+
+    interface *v_itf_ext_ep0 = new interface(
+        "port-e-00", interface::type_t::AFPACKET, interface::admin_state_t::UP);
+    WAIT_FOR_MATCH(*v_itf_ext_ep0);
+    gbp_endpoint_group *v_epg0 =
+      new gbp_endpoint_group(1133, 1234, *v_grd, *v_gbd);
+    WAIT_FOR_MATCH(*v_epg0);
+
+    WAIT_FOR_MATCH(gbp_endpoint(*v_itf_ext_ep0, getEPIps(ext_ep0), v_mac_ext_ep0, *v_epg0));
+
+    /* cleanup */
     {
       opflex::modb::Mutator m2(framework, policyOwner);
       ext_itf0->remove();
@@ -1585,14 +1600,14 @@ BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
     }
     vppManager.externalInterfaceUpdated(ext_itf0->getURI());
 
-    WAIT_FOR_NOT_PRESENT(gbp_subnet(v_rd, {"108.0.0.0", 24}, *v_epg1));
+    WAIT_FOR_NOT_PRESENT(gbp_subnet(v_rd, {"108.0.0.0", 24}, *v_net_epg1));
     WAIT_FOR_NOT_PRESENT(*v_ei);
     delete v_ei;
 
-    WAIT_FOR_NOT_PRESENT(*v_epg0);
-    WAIT_FOR_NOT_PRESENT(*v_epg1);
-    delete v_epg0;
-    delete v_epg1;
+    WAIT_FOR_NOT_PRESENT(*v_net_epg0);
+    WAIT_FOR_NOT_PRESENT(*v_net_epg1);
+    delete v_net_epg0;
+    delete v_net_epg1;
 
     WAIT_FOR_NOT_PRESENT(*v_grd);
     WAIT_FOR_NOT_PRESENT(*v_gbd);
