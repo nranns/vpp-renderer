@@ -331,7 +331,7 @@ EndPointManager::handle_update_i(const std::string &uuid, bool is_external)
     }
 
     std::shared_ptr<VOM::gbp_endpoint_group> gepg =
-        EndPointGroupManager::mk_group(m_runtime, uuid, epgURI.get());
+      EndPointGroupManager::mk_group(m_runtime, uuid, epgURI.get(), is_external);
 
     if (gepg)
     {

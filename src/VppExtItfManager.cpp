@@ -13,9 +13,12 @@
 
 #include <modelgbp/gbp/ExternalInterface.hpp>
 #include <modelgbp/gbp/L3ExternalDomain.hpp>
+#include <modelgbp/gbp/Subnet.hpp>
 
 #include <vom/gbp_subnet.hpp>
 #include <vom/gbp_ext_itf.hpp>
+#include <vom/l3_binding.hpp>
+#include <vom/route.hpp>
 
 #include "VppLog.hpp"
 #include "VppUtil.hpp"
@@ -119,6 +122,37 @@ ExtItfManager::handle_update(const opflex::modb::URI &uri)
 
     if (vlan_id)
       ;
+
+    /*
+     * Add the /32 to the BVI
+     */
+    boost::optional<const std::string&> s_addr = ext_itf.get()->getAddress();
+
+    if (!s_addr)
+    {
+        VLOGI << "External-Interface; no prefix: " << uri;
+        return;
+    }
+    boost::asio::ip::address p_addr =
+	boost::asio::ip::address::from_string(s_addr.get());
+
+    l3_binding l3b(*bvi, {p_addr});
+    OM::write(uuid, l3b);
+
+    opflexagent::PolicyManager::subnet_vector_t subnets;
+
+    m_runtime.policy_manager().getSubnetsForExternalInterface(uri, subnets);
+
+    for (auto sn : subnets)
+    {
+	if (!sn->getPrefixLen() || !sn->getAddress()) continue;
+
+	route::prefix_t pfx(sn->getAddress().get(),
+			    sn->getPrefixLen().get());
+
+	route::ip_route ipr(rd, pfx, {route::path::special_t::DROP});
+	OM::write(uuid, ipr);
+    }
 
     /*
      * This BVI is the ExternalInterface

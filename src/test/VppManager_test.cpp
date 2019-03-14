@@ -386,7 +386,6 @@ class VppManagerFixture : public ModbFixture
         ext_node0 = space->addGbpExternalNode("ext_node0");
         ext_itf0 = space->addGbpExternalInterface("ext_itf0");
         ext_itf0->setAddress("10.30.0.1");
-        ext_itf0->setPrefixLen(24);
         ext_itf0->setEncap(1144);
         ext_itf0->setMac(opflex::modb::MAC("00:00:00:00:80:00"));
         ext_itf0->setIfInstT(L3IfTypeEnumT::CONST_EXTSVI);

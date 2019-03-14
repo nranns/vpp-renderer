@@ -41,7 +41,7 @@ get_group_sclass(opflexagent::Agent &agent,
     opflexagent::PolicyManager &pm = agent.getPolicyManager();
     for (auto &u : uris)
     {
-        boost::optional<uint32_t> sclass = pm.getVnidForGroup(u);
+        boost::optional<uint32_t> sclass = pm.getSclassForGroup(u);
 
         if (!sclass)
         {
@@ -131,7 +131,7 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
         const ethertype_t &etherType = ethertype_t::from_numeric_val(
             cls->getEtherT(modelgbp::l2::EtherTypeEnumT::CONST_UNSPECIFIED));
         ACL::action_t act = ACL::action_t::from_bool(
-            rule->getAllow(),
+            (rule->getAllow() || rule->getRedirect()),
             cls->getConnectionTracking(
                 modelgbp::gbp::ConnTrackEnumT::CONST_NORMAL));
 
@@ -232,8 +232,7 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
                 gbp_rules.insert(gr);
             }
         }
-        else if (act == ACL::action_t::PERMIT ||
-                 act == ACL::action_t::PERMITANDREFLEX)
+        else if (rule->getAllow())
         {
             gbp_rule gr(rule->getPriority(), gbp_rule::action_t::PERMIT);
             gbp_rules.insert(gr);

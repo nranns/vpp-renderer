@@ -52,6 +52,57 @@ EndPointGroupManager::ForwardInfo::ForwardInfo()
 }
 
 EndPointGroupManager::ForwardInfo
+EndPointGroupManager::get_fwd_info_ext_itf(
+    Runtime &runtime, const opflex::modb::URI &uri) throw(NoFowardInfoException)
+{
+    EndPointGroupManager::ForwardInfo fwd;
+    opflexagent::PolicyManager &polMgr = runtime.policy_manager();
+
+    fwd.vnid = 0xdeadbeaf;
+
+    boost::optional<uint32_t> sclass = polMgr.getSclassForExternalInterface(uri);
+
+    if (!sclass)
+    {
+        throw NoFowardInfoException("No Sclass for External-Interface");
+    }
+    fwd.sclass = sclass.get();
+
+    boost::optional<std::shared_ptr<modelgbp::gbp::RoutingDomain>> epgRd =
+        polMgr.getRDForExternalInterface(uri);
+    boost::optional<std::shared_ptr<modelgbp::gbp::ExternalL3BridgeDomain>> epgBd =
+        polMgr.getBDForExternalInterface(uri);
+
+
+    if (epgRd)
+    {
+        fwd.rdURI = epgRd.get()->getURI();
+        if (fwd.rdURI)
+            fwd.rdId = runtime.id_gen.get(
+                modelgbp::gbp::RoutingDomain::CLASS_ID, fwd.rdURI.get());
+        else
+          throw NoFowardInfoException("No RD-URI for External-Interface");
+    }
+    else
+    {
+      throw NoFowardInfoException("No RD for External-Interface");
+    }
+
+    if (epgBd)
+    {
+        fwd.bdURI = epgBd.get()->getURI();
+        fwd.bdId = runtime.id_gen.get(modelgbp::gbp::BridgeDomain::CLASS_ID,
+                                      fwd.bdURI.get());
+    }
+    else
+    {
+        throw NoFowardInfoException("No BD for EPG");
+    }
+    return fwd;
+
+}
+
+EndPointGroupManager::ForwardInfo
 EndPointGroupManager::get_fwd_info(
     Runtime &runtime, const opflex::modb::URI &uri) throw(NoFowardInfoException)
 {
@@ -196,7 +247,8 @@ EndPointGroupManager::mk_bvi(Runtime &r,
 std::shared_ptr<VOM::gbp_endpoint_group>
 EndPointGroupManager::mk_group(Runtime &runtime,
                                const std::string &key,
-                               const opflex::modb::URI &uri)
+                               const opflex::modb::URI &uri,
+			       bool is_ext)
 {
     std::shared_ptr<VOM::gbp_endpoint_group> gepg;
 
@@ -208,7 +260,10 @@ EndPointGroupManager::mk_group(Runtime &runtime,
         EndPointGroupManager::ForwardInfo fwd;
         gbp_endpoint_group::retention_t retention(120);
 
-        fwd = get_fwd_info(runtime, uri);
+	if (is_ext)
+	    fwd = get_fwd_info_ext_itf(runtime, uri);
+	else
+	    fwd = get_fwd_info(runtime, uri);
 
         boost::optional<std::shared_ptr<modelgbp::gbpe::EndpointRetention>> ret_pol =
             runtime.policy_manager().getL2EPRetentionPolicyForGroup(uri);
@@ -240,12 +295,21 @@ EndPointGroupManager::mk_group(Runtime &runtime,
              * TRANSPORT mode
              * then a route domain that uses the v4 and v6 resp
              */
-            boost::optional<uint32_t> rd_vnid =
-              runtime.policy_manager().getRDVnidForGroup(uri);
-            boost::optional<uint32_t> bd_vnid =
-              runtime.policy_manager().getBDVnidForGroup(uri);
-            boost::optional<std::string> bd_mcast =
-              runtime.policy_manager().getBDMulticastIPForGroup(uri);
+            boost::optional<uint32_t> rd_vnid;
+            boost::optional<uint32_t> bd_vnid;
+            boost::optional<std::string> bd_mcast;
+	    if (is_ext)
+	    {
+		rd_vnid = runtime.policy_manager().getRDVnidForExternalInterface(uri);
+		bd_vnid = runtime.policy_manager().getBDVnidForExternalInterface(uri);
+		bd_mcast = runtime.policy_manager().getBDMulticastIPForExternalInterface(uri);
+	    }
+	    else
+	    {
+		rd_vnid = runtime.policy_manager().getRDVnidForGroup(uri);
+		bd_vnid = runtime.policy_manager().getBDVnidForGroup(uri);
+		bd_mcast = runtime.policy_manager().getBDMulticastIPForGroup(uri);
+	    }
 
             if (bd_vnid && rd_vnid && bd_mcast)
             {

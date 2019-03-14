@@ -54,13 +54,18 @@ class EndPointGroupManager
     get_fwd_info(Runtime &r,
                  const opflex::modb::URI &uri)
       throw(NoFowardInfoException);
+    static ForwardInfo
+    get_fwd_info_ext_itf(Runtime &r,
+			 const opflex::modb::URI &uri)
+      throw(NoFowardInfoException);
 
     void handle_update(const opflex::modb::URI &epgURI);
 
     static std::shared_ptr<VOM::gbp_endpoint_group>
     mk_group(Runtime &r,
              const std::string &key,
-             const opflex::modb::URI &uri);
+             const opflex::modb::URI &uri,
+	     bool is_ext = false);
 
     static std::shared_ptr<vxlan_tunnel>
     mk_mcast_tunnel(Runtime &r,
