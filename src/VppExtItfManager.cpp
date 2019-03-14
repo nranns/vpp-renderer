@@ -192,8 +192,7 @@ ExtItfManager::handle_update(const opflex::modb::URI &uri)
 
         /* Construct a fake EPG so we re-use the same model of epg-ID<->sclass
          * conversions */
-        uint32_t epg_id = m_runtime.id_gen.get_ext_net_vnid(net_uri);
-        gbp_endpoint_group gepg(epg_id, sclass.get(), grd, gbd);
+        gbp_endpoint_group gepg(0x8000FEED, sclass.get(), grd, gbd);
         OM::write(uuid, gepg);
 
         /* traverse each subnet in the network */

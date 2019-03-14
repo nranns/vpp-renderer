@@ -549,7 +549,10 @@ EndPointManager::handle_update_i(const std::string &uuid, bool is_external)
                 /*
                  * add a GDBP endpoint
                  */
-                gbp_endpoint gbpe(*itf, ipAddresses, vmac, *gepg);
+                gbp_endpoint gbpe(*itf, ipAddresses, vmac, *gepg,
+                                  (is_external ?
+                                   gbp_endpoint::flags_t::EXTERNAL :
+                                  gbp_endpoint::flags_t::NONE));
                 OM::write(uuid, gbpe);
 
                 /*

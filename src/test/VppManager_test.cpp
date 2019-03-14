@@ -380,6 +380,7 @@ class VppManagerFixture : public ModbFixture
             .setPrefixLen(24);
         ext_bd0 = space->addGbpExternalL3BridgeDomain("ext_bd0");
         ext_bd0->addGbpeInstContext()->setEncapId(1133);
+        ext_bd0->addGbpeInstContext()->setClassid(2233);
         ext_bd0->addGbpeInstContext()->setMulticastGroupIP("224.1.2.2");
         ext_bd0->addGbpExternalL3BridgeDomainToVrfRSrc()->
             setTargetRoutingDomain(ext_rd0->getURI());
@@ -387,6 +388,7 @@ class VppManagerFixture : public ModbFixture
         ext_itf0 = space->addGbpExternalInterface("ext_itf0");
         ext_itf0->setAddress("10.30.0.1");
         ext_itf0->setEncap(1144);
+        //ext_itf0->addGbpeInstContext()->setClassid(2244);
         ext_itf0->setMac(opflex::modb::MAC("00:00:00:00:80:00"));
         ext_itf0->setIfInstT(L3IfTypeEnumT::CONST_EXTSVI);
         ext_itf0->addGbpExternalInterfaceToExtl3bdRSrc()->
@@ -453,6 +455,7 @@ class VppManagerFixture : public ModbFixture
         ext_ep0->setEgURI(ext_itf0->getURI());
         ext_ep0->setExtInterfaceURI(ext_itf0->getURI());
         ext_ep0->setExtNodeURI(ext_node0->getURI());
+        ext_ep0->setExternal();
         epSrc.updateEndpoint(*ext_ep0);
     }
 
@@ -1475,8 +1478,6 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
     v_epg->set({120});
     WAIT_FOR_MATCH(*v_epg);
 
-    inspector.handle_input("all", std::cout);
-
     WAIT_FOR_MATCH(gbp_vxlan(0xAA, *v_gbd, host.to_v4()));
     WAIT_FOR_MATCH(gbp_vxlan(0xBB, *v_grd, host.to_v4()));
 
@@ -1564,10 +1565,10 @@ BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
 
     /* 0x80000064 is the internally generated EPG-ID for each Ext-net */
     gbp_endpoint_group *v_net_epg0 =
-      new gbp_endpoint_group(0x80000065, 1234, *v_grd, *v_gbd);
+      new gbp_endpoint_group(0x8000FEED, 1234, *v_grd, *v_gbd);
     WAIT_FOR_MATCH(*v_net_epg0);
     gbp_endpoint_group *v_net_epg1 =
-      new gbp_endpoint_group(0x80000064, 1235, *v_grd, *v_gbd);
+      new gbp_endpoint_group(0x8000FEED, 1235, *v_grd, *v_gbd);
     WAIT_FOR_MATCH(*v_net_epg1);
 
     gbp_ext_itf *v_ei = new gbp_ext_itf(*v_bvi, *v_gbd, *v_grd);
@@ -1579,20 +1580,29 @@ BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
     WAIT_FOR_MATCH(gbp_subnet(v_rd, {"108.0.0.0", 24}, *v_net_epg1));
 
     /* Add an EP */
-    vppManager.endpointUpdated(ext_ep0->getUUID());
+    vppManager.externalEndpointUpdated(ext_ep0->getUUID());
 
     mac_address_t v_mac_ext_ep0("00:00:00:00:0E:00");
 
     interface *v_itf_ext_ep0 = new interface(
-        "port-e-00", interface::type_t::AFPACKET, interface::admin_state_t::UP);
+        "port-e-00", interface::type_t::AFPACKET, interface::admin_state_t::UP, v_rd);
     WAIT_FOR_MATCH(*v_itf_ext_ep0);
+    // VNID of the EXT-itf and sclass of the BD
     gbp_endpoint_group *v_epg0 =
-      new gbp_endpoint_group(1133, 1234, *v_grd, *v_gbd);
+      new gbp_endpoint_group(0xdeadbeaf, 2233, *v_grd, *v_gbd);
+    v_epg0->set({120});
     WAIT_FOR_MATCH(*v_epg0);
 
-    WAIT_FOR_MATCH(gbp_endpoint(*v_itf_ext_ep0, getEPIps(ext_ep0), v_mac_ext_ep0, *v_epg0));
+    gbp_endpoint *v_ep =
+        new gbp_endpoint(*v_itf_ext_ep0, getEPIps(ext_ep0),
+                         v_mac_ext_ep0, *v_epg0,
+                         gbp_endpoint::flags_t::EXTERNAL);
+    WAIT_FOR_MATCH(*v_ep);
 
     /* cleanup */
+    epSrc.removeEndpoint(ext_ep0->getUUID());
+    vppManager.externalEndpointUpdated(ext_ep0->getUUID());
+
     {
       opflex::modb::Mutator m2(framework, policyOwner);
       ext_itf0->remove();
@@ -1600,6 +1610,10 @@ BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
     }
     vppManager.externalInterfaceUpdated(ext_itf0->getURI());
 
+    WAIT_FOR_NOT_PRESENT(*v_ep);
+    delete v_ep;
+    WAIT_FOR_NOT_PRESENT(*v_epg0);
+    delete v_epg0;
     WAIT_FOR_NOT_PRESENT(gbp_subnet(v_rd, {"108.0.0.0", 24}, *v_net_epg1));
     WAIT_FOR_NOT_PRESENT(*v_ei);
     delete v_ei;

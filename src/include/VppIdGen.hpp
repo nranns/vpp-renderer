@@ -22,7 +22,6 @@ class IdGen
     uint32_t get(opflex::modb::class_id_t cid, const opflex::modb::URI &uri);
 
     void erase(opflex::modb::class_id_t cid, const opflex::modb::URI &uri);
-    uint32_t get_ext_net_vnid(const opflex::modb::URI &uri);
 
   private:
     const char *get_namespace(opflex::modb::class_id_t cid);
