@@ -190,11 +190,6 @@ ExtItfManager::handle_update(const opflex::modb::URI &uri)
             continue;
         }
 
-        /* Construct a fake EPG so we re-use the same model of epg-ID<->sclass
-         * conversions */
-        gbp_endpoint_group gepg(0x8000FEED, sclass.get(), grd, gbd);
-        OM::write(uuid, gepg);
-
         /* traverse each subnet in the network */
         std::vector<std::shared_ptr<modelgbp::gbp::ExternalSubnet>> ext_subs;
         net->resolveGbpExternalSubnet(ext_subs);
@@ -214,7 +209,7 @@ ExtItfManager::handle_update(const opflex::modb::URI &uri)
             boost::asio::ip::address addr =
                 boost::asio::ip::address::from_string(snet->getAddress().get());
 
-            gbp_subnet gs(rd, {addr, snet->getPrefixLen().get()}, gepg);
+            gbp_subnet gs(rd, {addr, snet->getPrefixLen().get()}, sclass.get());
             OM::write(uuid, gs);
         }
     }

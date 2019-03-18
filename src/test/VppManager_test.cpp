@@ -1567,20 +1567,13 @@ BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
     WAIT_FOR_MATCH(*v_grd);
 
     /* 0x80000064 is the internally generated EPG-ID for each Ext-net */
-    gbp_endpoint_group *v_net_epg0 =
-        new gbp_endpoint_group(0x8000FEED, 1234, *v_grd, *v_gbd);
-    WAIT_FOR_MATCH(*v_net_epg0);
-    gbp_endpoint_group *v_net_epg1 =
-        new gbp_endpoint_group(0x8000FEED, 1235, *v_grd, *v_gbd);
-    WAIT_FOR_MATCH(*v_net_epg1);
-
     gbp_ext_itf *v_ei = new gbp_ext_itf(*v_bvi, *v_gbd, *v_grd);
     WAIT_FOR_MATCH(*v_ei);
 
-    WAIT_FOR_MATCH(gbp_subnet(v_rd, {"105.0.0.0", 24}, *v_net_epg0));
-    WAIT_FOR_MATCH(gbp_subnet(v_rd, {"106.0.0.0", 24}, *v_net_epg0));
-    WAIT_FOR_MATCH(gbp_subnet(v_rd, {"107.0.0.0", 24}, *v_net_epg1));
-    WAIT_FOR_MATCH(gbp_subnet(v_rd, {"108.0.0.0", 24}, *v_net_epg1));
+    WAIT_FOR_MATCH(gbp_subnet(v_rd, {"105.0.0.0", 24}, 1234));
+    WAIT_FOR_MATCH(gbp_subnet(v_rd, {"106.0.0.0", 24}, 1234));
+    WAIT_FOR_MATCH(gbp_subnet(v_rd, {"107.0.0.0", 24}, 1235));
+    WAIT_FOR_MATCH(gbp_subnet(v_rd, {"108.0.0.0", 24}, 1235));
 
     /* Add an EP */
     vppManager.externalEndpointUpdated(ext_ep0->getUUID());
@@ -1620,14 +1613,9 @@ BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
     delete v_ep;
     WAIT_FOR_NOT_PRESENT(*v_epg0);
     delete v_epg0;
-    WAIT_FOR_NOT_PRESENT(gbp_subnet(v_rd, {"108.0.0.0", 24}, *v_net_epg1));
+    WAIT_FOR_NOT_PRESENT(gbp_subnet(v_rd, {"108.0.0.0", 24}, 1235));
     WAIT_FOR_NOT_PRESENT(*v_ei);
     delete v_ei;
-
-    WAIT_FOR_NOT_PRESENT(*v_net_epg0);
-    WAIT_FOR_NOT_PRESENT(*v_net_epg1);
-    delete v_net_epg0;
-    delete v_net_epg1;
 
     WAIT_FOR_NOT_PRESENT(*v_grd);
     WAIT_FOR_NOT_PRESENT(*v_gbd);
