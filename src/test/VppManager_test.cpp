@@ -20,8 +20,8 @@
 #include <modelgbp/gbp/SecGroup.hpp>
 
 #include <vom/acl_ethertype.hpp>
-#include <vom/acl_l3_list.hpp>
 #include <vom/acl_l2_list.hpp>
+#include <vom/acl_l3_list.hpp>
 #include <vom/bridge_domain.hpp>
 #include <vom/bridge_domain_arp_entry.hpp>
 #include <vom/bridge_domain_entry.hpp>
@@ -341,11 +341,12 @@ class VppManagerFixture : public ModbFixture
         epg0 = space->addGbpEpGroup("epg0");
         epg0->addGbpEpGroupToNetworkRSrc()->setTargetBridgeDomain(
             bd0->getURI());
-        epg0->addGbpEpGroupToNetworkRSrc()
-            ->setTargetFloodDomain(fd0->getURI());
+        epg0->addGbpEpGroupToNetworkRSrc()->setTargetFloodDomain(fd0->getURI());
         epg0->addGbpeInstContext()->setEncapId(0xA0A);
         epg0->addGbpeInstContext()->setClassid(0xBA);
-        epg0->addGbpeInstContext()->addGbpeInstContextToEpRetentionRSrc()->setTargetEndpointRetention(ret_pol0->getURI());
+        epg0->addGbpeInstContext()
+            ->addGbpeInstContextToEpRetentionRSrc()
+            ->setTargetEndpointRetention(ret_pol0->getURI());
 
         epg1 = space->addGbpEpGroup("epg1");
         epg1->addGbpEpGroupToNetworkRSrc()->setTargetBridgeDomain(
@@ -354,7 +355,9 @@ class VppManagerFixture : public ModbFixture
         epg1->addGbpeInstContext()->setClassid(0xBB);
 
         epg2 = space->addGbpEpGroup("epg2");
+        epg2->addGbpeInstContext()->setClassid(0xCA);
         epg3 = space->addGbpEpGroup("epg3");
+        epg3->addGbpeInstContext()->setClassid(0xCB);
 
         /*
          * L3Out objects
@@ -382,23 +385,23 @@ class VppManagerFixture : public ModbFixture
         ext_bd0->addGbpeInstContext()->setEncapId(1133);
         ext_bd0->addGbpeInstContext()->setClassid(2233);
         ext_bd0->addGbpeInstContext()->setMulticastGroupIP("224.1.2.2");
-        ext_bd0->addGbpExternalL3BridgeDomainToVrfRSrc()->
-            setTargetRoutingDomain(ext_rd0->getURI());
+        ext_bd0->addGbpExternalL3BridgeDomainToVrfRSrc()
+            ->setTargetRoutingDomain(ext_rd0->getURI());
         ext_node0 = space->addGbpExternalNode("ext_node0");
         ext_itf0 = space->addGbpExternalInterface("ext_itf0");
         ext_itf0->setAddress("10.30.0.1");
         ext_itf0->setEncap(1144);
-        //ext_itf0->addGbpeInstContext()->setClassid(2244);
+        // ext_itf0->addGbpeInstContext()->setClassid(2244);
         ext_itf0->setMac(opflex::modb::MAC("00:00:00:00:80:00"));
         ext_itf0->setIfInstT(L3IfTypeEnumT::CONST_EXTSVI);
-        ext_itf0->addGbpExternalInterfaceToExtl3bdRSrc()->
-            setTargetExternalL3BridgeDomain(ext_bd0->getURI());
-        ext_itf0->addGbpExternalInterfaceToL3outRSrc()->
-            setTargetL3ExternalDomain(ext_dom->getURI());
+        ext_itf0->addGbpExternalInterfaceToExtl3bdRSrc()
+            ->setTargetExternalL3BridgeDomain(ext_bd0->getURI());
+        ext_itf0->addGbpExternalInterfaceToL3outRSrc()
+            ->setTargetL3ExternalDomain(ext_dom->getURI());
 
         static_route1 = ext_node0->addGbpStaticRoute("static_route1");
-        static_route1->addGbpStaticRouteToVrfRSrc()->
-            setTargetRoutingDomain(ext_rd0->getURI());
+        static_route1->addGbpStaticRouteToVrfRSrc()->setTargetRoutingDomain(
+            ext_rd0->getURI());
         static_route1->setAddress("101.101.0.0");
         static_route1->setPrefixLen(16);
         static_route1->addGbpStaticNextHop("100.100.100.2");
@@ -561,12 +564,12 @@ class VppManagerFixture : public ModbFixture
         WAIT_FOR_MATCH(lldp_binding(v_phy, "uplink-interface"));
 
         std::shared_ptr<dhcp_client::lease_t> lease =
-          std::make_shared<dhcp_client::lease_t>(dhcp_client::state_t::BOUND,
-                                                 v_sub.singular(),
-                                                 router,
-                                                 pfx,
-                                                 boost::asio::ip::host_name(),
-                                                 mac);
+            std::make_shared<dhcp_client::lease_t>(dhcp_client::state_t::BOUND,
+                                                   v_sub.singular(),
+                                                   router,
+                                                   pfx,
+                                                   boost::asio::ip::host_name(),
+                                                   mac);
 
         vppManager.uplink().handle_dhcp_event(lease);
     }
@@ -652,15 +655,19 @@ class VppTransportManagerFixture : public VppManagerFixture
     VppTransportManagerFixture()
         : VppManagerFixture(opflex_elem_t::TRANSPORT_MODE)
     {
-        framework.setElementMode(opflex::ofcore::OFConstants::OpflexElementMode::TRANSPORT_MODE);
+        framework.setElementMode(
+            opflex::ofcore::OFConstants::OpflexElementMode::TRANSPORT_MODE);
         boost::system::error_code ec;
         boost::asio::ip::address_v4 proxyAddress;
 
-        proxyAddress = boost::asio::ip::address_v4::from_string("44.44.44.44",ec);
+        proxyAddress =
+            boost::asio::ip::address_v4::from_string("44.44.44.44", ec);
         framework.setV4Proxy(proxyAddress);
-        proxyAddress = boost::asio::ip::address_v4::from_string("66.66.66.66",ec);
+        proxyAddress =
+            boost::asio::ip::address_v4::from_string("66.66.66.66", ec);
         framework.setV6Proxy(proxyAddress);
-        proxyAddress = boost::asio::ip::address_v4::from_string("55.55.55.55",ec);
+        proxyAddress =
+            boost::asio::ip::address_v4::from_string("55.55.55.55", ec);
         framework.setMacProxy(proxyAddress);
         vppManager.start();
     }
@@ -1178,8 +1185,8 @@ BOOST_FIXTURE_TEST_CASE(endpoint_nat_add_del, VppStitchedManagerFixture)
     gbp_bridge_domain *v_gbd_nat =
         new gbp_bridge_domain(v_bd_epg_nat, *v_bvi_nat);
     WAIT_FOR_MATCH(*v_gbd_nat);
-    gbp_endpoint_group *v_epg_nat =
-        new gbp_endpoint_group(0x424, 0x44, v_upl_epg_nat, v_rd_nat, *v_gbd_nat);
+    gbp_endpoint_group *v_epg_nat = new gbp_endpoint_group(
+        0x424, 0x44, v_upl_epg_nat, v_rd_nat, *v_gbd_nat);
     v_epg_nat->set({120});
     WAIT_FOR_MATCH(*v_epg_nat);
     interface *v_bvi_epg_nat = new interface("bvi-102",
@@ -1233,9 +1240,8 @@ BOOST_FIXTURE_TEST_CASE(endpoint_nat_add_del, VppStitchedManagerFixture)
                                l3_proto_t::IPV6,
                                nat_binding::zone_t::OUTSIDE));
 
-    WAIT_FOR_MATCH(gbp_recirc(v_recirc_itf,
-                              gbp_recirc::type_t::INTERNAL,
-                              *v_epg0));
+    WAIT_FOR_MATCH(
+        gbp_recirc(v_recirc_itf, gbp_recirc::type_t::INTERNAL, *v_epg0));
 
     /*
      * floating IP state in the NAT BD/RD
@@ -1299,9 +1305,8 @@ BOOST_FIXTURE_TEST_CASE(endpoint_nat_add_del, VppStitchedManagerFixture)
                                l3_proto_t::IPV6,
                                nat_binding::zone_t::OUTSIDE));
 
-    gbp_recirc *v_nat_grecirc = new gbp_recirc(v_nat_recirc_itf,
-                                               gbp_recirc::type_t::EXTERNAL,
-                                               *v_epg_nat);
+    gbp_recirc *v_nat_grecirc = new gbp_recirc(
+        v_nat_recirc_itf, gbp_recirc::type_t::EXTERNAL, *v_epg_nat);
 
     /*
      * with the RD the route becomes external via the recirc
@@ -1469,12 +1474,14 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
         new vxlan_tunnel(host, spine_v6, 0xBB, vxlan_tunnel::mode_t::GBP);
     WAIT_FOR_MATCH(*vt_v6);
 
-    gbp_bridge_domain *v_gbd = new gbp_bridge_domain(v_bd, *v_bvi, *vt_mac, *vt_mc);
+    gbp_bridge_domain *v_gbd =
+        new gbp_bridge_domain(v_bd, *v_bvi, *vt_mac, *vt_mc);
     WAIT_FOR_MATCH(*v_gbd);
     gbp_route_domain *v_grd = new gbp_route_domain(v_rd, *vt_v4, *vt_v6);
     WAIT_FOR_MATCH(*v_grd);
 
-    gbp_endpoint_group *v_epg = new gbp_endpoint_group(0xA0A, 0xBA, *v_grd, *v_gbd);
+    gbp_endpoint_group *v_epg =
+        new gbp_endpoint_group(0xA0A, 0xBA, *v_grd, *v_gbd);
     v_epg->set({120});
     WAIT_FOR_MATCH(*v_epg);
 
@@ -1536,39 +1543,35 @@ BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
     bridge_domain v_bd(100, bridge_domain::learning_mode_t::OFF);
     WAIT_FOR_MATCH(v_bd);
 
-    std::shared_ptr<interface> v_bvi =
-      std::make_shared<interface>("bvi-100",
-                                  interface::type_t::BVI,
-                                  interface::admin_state_t::UP,
-                                  v_rd);
+    std::shared_ptr<interface> v_bvi = std::make_shared<interface>(
+        "bvi-100", interface::type_t::BVI, interface::admin_state_t::UP, v_rd);
     l2_address_t l2addr(mac_address_t("00:00:00:00:80:00"));
     v_bvi->set(l2addr);
 
     WAIT_FOR_MATCH(*v_bvi);
 
     boost::asio::ip::address bd_mcast =
-      boost::asio::ip::address::from_string("224.1.2.2");
+        boost::asio::ip::address::from_string("224.1.2.2");
 
-    std::shared_ptr<vxlan_tunnel> vt_bd_mcast =
-      std::make_shared<vxlan_tunnel>(host, bd_mcast, 1133, v_sub,
-                                     vxlan_tunnel::mode_t::GBP);
+    std::shared_ptr<vxlan_tunnel> vt_bd_mcast = std::make_shared<vxlan_tunnel>(
+        host, bd_mcast, 1133, v_sub, vxlan_tunnel::mode_t::GBP);
     WAIT_FOR_MATCH(*vt_bd_mcast);
     igmp_binding igmp_b(v_sub);
     WAIT_FOR_MATCH(igmp_b);
     WAIT_FOR_MATCH(igmp_listen(igmp_b, bd_mcast.to_v4()));
 
     gbp_bridge_domain *v_gbd =
-      new gbp_bridge_domain(v_bd, v_bvi, {}, vt_bd_mcast);
+        new gbp_bridge_domain(v_bd, v_bvi, {}, vt_bd_mcast);
     WAIT_FOR_MATCH(*v_gbd);
     gbp_route_domain *v_grd = new gbp_route_domain(v_rd);
     WAIT_FOR_MATCH(*v_grd);
 
     /* 0x80000064 is the internally generated EPG-ID for each Ext-net */
     gbp_endpoint_group *v_net_epg0 =
-      new gbp_endpoint_group(0x8000FEED, 1234, *v_grd, *v_gbd);
+        new gbp_endpoint_group(0x8000FEED, 1234, *v_grd, *v_gbd);
     WAIT_FOR_MATCH(*v_net_epg0);
     gbp_endpoint_group *v_net_epg1 =
-      new gbp_endpoint_group(0x8000FEED, 1235, *v_grd, *v_gbd);
+        new gbp_endpoint_group(0x8000FEED, 1235, *v_grd, *v_gbd);
     WAIT_FOR_MATCH(*v_net_epg1);
 
     gbp_ext_itf *v_ei = new gbp_ext_itf(*v_bvi, *v_gbd, *v_grd);
@@ -1584,19 +1587,22 @@ BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
 
     mac_address_t v_mac_ext_ep0("00:00:00:00:0E:00");
 
-    interface *v_itf_ext_ep0 = new interface(
-        "port-e-00", interface::type_t::AFPACKET, interface::admin_state_t::UP, v_rd);
+    interface *v_itf_ext_ep0 = new interface("port-e-00",
+                                             interface::type_t::AFPACKET,
+                                             interface::admin_state_t::UP,
+                                             v_rd);
     WAIT_FOR_MATCH(*v_itf_ext_ep0);
     // VNID of the EXT-itf and sclass of the BD
     gbp_endpoint_group *v_epg0 =
-      new gbp_endpoint_group(0xdeadbeaf, 2233, *v_grd, *v_gbd);
+        new gbp_endpoint_group(0xdeadbeaf, 2233, *v_grd, *v_gbd);
     v_epg0->set({120});
     WAIT_FOR_MATCH(*v_epg0);
 
-    gbp_endpoint *v_ep =
-        new gbp_endpoint(*v_itf_ext_ep0, getEPIps(ext_ep0),
-                         v_mac_ext_ep0, *v_epg0,
-                         gbp_endpoint::flags_t::EXTERNAL);
+    gbp_endpoint *v_ep = new gbp_endpoint(*v_itf_ext_ep0,
+                                          getEPIps(ext_ep0),
+                                          v_mac_ext_ep0,
+                                          *v_epg0,
+                                          gbp_endpoint::flags_t::EXTERNAL);
     WAIT_FOR_MATCH(*v_ep);
 
     /* cleanup */
@@ -1604,9 +1610,9 @@ BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
     vppManager.externalEndpointUpdated(ext_ep0->getUUID());
 
     {
-      opflex::modb::Mutator m2(framework, policyOwner);
-      ext_itf0->remove();
-      m2.commit();
+        opflex::modb::Mutator m2(framework, policyOwner);
+        ext_itf0->remove();
+        m2.commit();
     }
     vppManager.externalInterfaceUpdated(ext_itf0->getURI());
 
@@ -1634,7 +1640,8 @@ BOOST_FIXTURE_TEST_CASE(static_route, VppTransportManagerFixture)
     route_domain v_rd(100);
     WAIT_FOR_MATCH(v_rd);
 
-    route::prefix_t pfx(boost::asio::ip::address::from_string("101.101.0.0"), 16);
+    route::prefix_t pfx(boost::asio::ip::address::from_string("101.101.0.0"),
+                        16);
 
     boost::asio::ip::address nh1, nh2, nh3;
     nh1 = boost::asio::ip::address::from_string("100.100.100.2");
@@ -1921,10 +1928,10 @@ BOOST_FIXTURE_TEST_CASE(policy, VppStitchedManagerFixture)
     gbp_contract::ethertype_set_t allowed2 = {ethertype_t::IPV4,
                                               ethertype_t::ARP};
 
-    WAIT_FOR1(is_match(gbp_contract(3339, 2570, outAcl2, grules2, allowed2)));
-    WAIT_FOR1(is_match(gbp_contract(3339, 2571, outAcl2, grules2, allowed2)));
-    WAIT_FOR1(is_match(gbp_contract(3338, 2570, outAcl2, grules2, allowed2)));
-    WAIT_FOR1(is_match(gbp_contract(3338, 2571, outAcl2, grules2, allowed2)));
+    WAIT_FOR1(is_match(gbp_contract(202, 186, outAcl2, grules2, allowed2)));
+    WAIT_FOR1(is_match(gbp_contract(202, 187, outAcl2, grules2, allowed2)));
+    WAIT_FOR1(is_match(gbp_contract(203, 186, outAcl2, grules2, allowed2)));
+    WAIT_FOR1(is_match(gbp_contract(203, 187, outAcl2, grules2, allowed2)));
 }
 
 BOOST_FIXTURE_TEST_CASE(policyPortRange, VppStitchedManagerFixture)
@@ -1988,6 +1995,7 @@ BOOST_FIXTURE_TEST_CASE(policyPortRange, VppStitchedManagerFixture)
 
     ACL::l3_list outAcl(con3->getURI().toString() + "out", rules1);
     WAIT_FOR_MATCH(outAcl);
+
     gbp_contract::gbp_rules_t grules = {{8192, gbp_rule::action_t::PERMIT},
                                         {7936, gbp_rule::action_t::PERMIT},
                                         {7808, gbp_rule::action_t::PERMIT}};
@@ -1995,7 +2003,7 @@ BOOST_FIXTURE_TEST_CASE(policyPortRange, VppStitchedManagerFixture)
     gbp_contract::ethertype_set_t allowed = {ethertype_t::IPV4,
                                              ethertype_t::ARP};
 
-    WAIT_FOR1(is_match(gbp_contract(2571, 2570, outAcl, grules, allowed)));
+    WAIT_FOR1(is_match(gbp_contract(187, 186, outAcl, grules, allowed)));
 }
 
 BOOST_FIXTURE_TEST_CASE(policyRedirect, VppTransportManagerFixture)
@@ -2092,7 +2100,7 @@ BOOST_FIXTURE_TEST_CASE(policyRedirect, VppTransportManagerFixture)
 
     gbp_contract::ethertype_set_t e_rules = {ethertype_t::IPV4};
 
-    ACL::action_t act = ACL::action_t::DENY;
+    ACL::action_t act = ACL::action_t::PERMIT;
     ACL::l3_rule rule1(8192,
                        act,
                        route::prefix_t::ZERO,
@@ -2109,7 +2117,7 @@ BOOST_FIXTURE_TEST_CASE(policyRedirect, VppTransportManagerFixture)
     ACL::l3_list outAcl(con5->getURI().toString() + "out", rules1);
     WAIT_FOR_MATCH(outAcl);
 
-    gbp_contract gbpc(2571, 2570, outAcl, gbp_rules, e_rules);
+    gbp_contract gbpc(187, 186, outAcl, gbp_rules, e_rules);
 
     WAIT_FOR1(is_match(gbpc));
 }
