@@ -12,6 +12,10 @@
 
 #include <opflexagent/Agent.h>
 
+#include <modelgbp/gbp/L3ExternalDomain.hpp>
+
+#include <vom/route_domain.hpp>
+
 #include "VppRuntime.hpp"
 
 namespace VPP
@@ -22,9 +26,12 @@ class RouteManager
     RouteManager(Runtime &runtime);
 
     void handle_domain_update(const opflex::modb::URI &uri);
-    void handle_static_update(const opflex::modb::URI &uri);
-    void handle_remote_update(const opflex::modb::URI &uri);
+    void handle_route_update(const opflex::modb::URI &uri);
 
+    static void mk_ext_nets(Runtime &runtime,
+                            route_domain &rd,
+                            const opflex::modb::URI &uri,
+                            std::shared_ptr<modelgbp::gbp::L3ExternalDomain> ext_dom);
   private:
     /**
      * Reference to the runtime data

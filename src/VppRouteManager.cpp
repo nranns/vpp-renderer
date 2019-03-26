@@ -32,6 +32,7 @@
 #include <vom/route.hpp>
 #include <vom/route_domain.hpp>
 #include <vom/sub_interface.hpp>
+#include <vom/neighbour.hpp>
 
 #include "VppEndPointGroupManager.hpp"
 #include "VppLog.hpp"
@@ -92,6 +93,57 @@ get_rd_subnets(opflexagent::Agent &agent, const opflex::modb::URI &uri)
     }
 
     return intSubnets;
+}
+
+void
+RouteManager::mk_ext_nets(Runtime &runtime,
+                          route_domain &rd,
+                          const opflex::modb::URI &uri,
+                          std::shared_ptr<modelgbp::gbp::L3ExternalDomain> ext_dom)
+{
+    const std::string &uuid = uri.toString();
+
+    /* To get all the external networks in an external domain */
+    std::vector<std::shared_ptr<modelgbp::gbp::L3ExternalNetwork>> ext_nets;
+    ext_dom->resolveGbpL3ExternalNetwork(ext_nets);
+
+    for (std::shared_ptr<modelgbp::gbp::L3ExternalNetwork> net : ext_nets)
+    {
+        const opflex::modb::URI net_uri = net->getURI();
+
+        /* For each external network, get the sclass */
+        boost::optional<uint32_t> sclass =
+            runtime.policy_manager().getSclassForExternalNet(net_uri);
+
+        if (!sclass)
+        {
+            VLOGI << "External-Network; no sclass: " << net_uri;
+            continue;
+        }
+
+        /* traverse each subnet in the network */
+        std::vector<std::shared_ptr<modelgbp::gbp::ExternalSubnet>> ext_subs;
+        net->resolveGbpExternalSubnet(ext_subs);
+
+        for (std::shared_ptr<modelgbp::gbp::ExternalSubnet> snet : ext_subs)
+        {
+            VLOGD << "External-Interface; subnet:" << uri
+                  << " external:" << ext_dom.get()->getName("n/a")
+                  << " external-net:" << net->getName("n/a")
+                  << " external-sub:" << snet->getAddress("n/a") << "/"
+                  << std::to_string(snet->getPrefixLen(99))
+                  << " sclass:" << sclass.get();
+
+            if (!snet->isAddressSet() || !snet->isPrefixLenSet())
+                    continue;
+
+            boost::asio::ip::address addr =
+                boost::asio::ip::address::from_string(snet->getAddress().get());
+
+            gbp_subnet gs(rd, {addr, snet->getPrefixLen().get()}, sclass.get());
+            OM::write(uuid, gs);
+        }
+    }
 }
 
 void
@@ -163,215 +215,98 @@ RouteManager::handle_domain_update(const opflex::modb::URI &uri)
      */
     std::vector<std::shared_ptr<modelgbp::gbp::L3ExternalDomain>> extDoms;
     opf_rd.get()->resolveGbpL3ExternalDomain(extDoms);
-    for (std::shared_ptr<modelgbp::gbp::L3ExternalDomain> &extDom : extDoms)
+
+    for (std::shared_ptr<modelgbp::gbp::L3ExternalDomain> ext_dom : extDoms)
     {
-        std::vector<std::shared_ptr<modelgbp::gbp::L3ExternalNetwork>> extNets;
-        extDom->resolveGbpL3ExternalNetwork(extNets);
+        mk_ext_nets(m_runtime, rd, uri, ext_dom);
+    }
+}
 
-        for (std::shared_ptr<modelgbp::gbp::L3ExternalNetwork> net : extNets)
+void
+RouteManager::handle_route_update(const opflex::modb::URI &uri)
+{
+    const std::string &uuid = uri.toString();
+
+    OM::mark_n_sweep ms(uuid);
+
+    boost::optional<std::shared_ptr<modelgbp::epdr::LocalRoute>> op_local_route =
+        modelgbp::epdr::LocalRoute::resolve(m_runtime.agent.getFramework(), uri);
+
+    if (!op_local_route)
+    {
+        VLOGD << "Cleaning up for Route: " << uri;
+        return;
+    }
+
+    mac_address_t GBP_ROUTED_DST_MAC("00:0c:0c:0c:0c:0c");
+
+    std::shared_ptr<modelgbp::gbp::RoutingDomain> rd;
+    std::shared_ptr<modelgbp::gbpe::InstContext> rd_inst;
+    boost::asio::ip::address pfx_addr;
+    uint8_t pfx_len;
+    std::list<boost::asio::ip::address> nh_list;
+    bool are_nhs_remote;
+    boost::optional<uint32_t> sclass;
+
+    m_runtime.agent.getPolicyManager().getRoute
+        (modelgbp::epdr::LocalRoute::CLASS_ID, uri,
+         m_runtime.uplink.local_address(),
+         rd, rd_inst, pfx_addr, pfx_len,
+         nh_list, are_nhs_remote, sclass);
+
+    uint32_t rd_id = m_runtime.id_gen.get(modelgbp::gbp::RoutingDomain::CLASS_ID,
+                                          rd->getURI());
+ 
+    VOM::route_domain v_rd(rd_id);
+    VOM::OM::write(uuid, v_rd);
+
+    route::prefix_t pfx(pfx_addr, pfx_len);
+    route::ip_route v_route(v_rd, pfx);
+
+    for (auto nh : nh_list)
+    {
+        if (are_nhs_remote)
         {
-            std::vector<std::shared_ptr<modelgbp::gbp::ExternalSubnet>> extSubs;
-            net->resolveGbpExternalSubnet(extSubs);
-            boost::optional<std::shared_ptr<
-                modelgbp::gbp::L3ExternalNetworkToNatEPGroupRSrc>>
-                natRef = net->resolveGbpL3ExternalNetworkToNatEPGroupRSrc();
-            boost::optional<uint32_t> natEpgVnid = boost::none;
-            boost::optional<opflex::modb::URI> natEpg = boost::none;
+            /*
+             * route via vxlan-gbp-tunnel
+             */
+            vxlan_tunnel vt(m_runtime.uplink.local_address(), nh,
+                            rd_inst->getEncapId().get(),
+                            vxlan_tunnel::mode_t::GBP);
+            OM::write(uuid, vt);
 
-            if (natRef)
-            {
-                natEpg = natRef.get()->getTargetURI();
-                if (natEpg)
-                    natEpgVnid =
-                        m_runtime.agent.getPolicyManager().getVnidForGroup(
-                            natEpg.get());
-            }
+            neighbour::flags_t f = (neighbour::flags_t::STATIC |
+                                    neighbour::flags_t::NO_FIB_ENTRY);
 
-            for (auto extSub : extSubs)
-            {
-                if (!extSub->isAddressSet() || !extSub->isPrefixLenSet())
-                    continue;
+            neighbour nbr(vt, nh, GBP_ROUTED_DST_MAC, f);
+            VOM::OM::write(uuid, nbr);
 
-                VLOGD << "Importing routing domain:" << uri
-                      << " external:" << extDom->getName("n/a")
-                      << " external-net:" << net->getName("n/a")
-                      << " external-sub:" << extSub->getAddress("n/a") << "/"
-                      << std::to_string(extSub->getPrefixLen(99))
-                      << " nat-epg:" << natEpg << " nat-epg-id:" << natEpgVnid;
+            v_route.add({nh, vt});
 
-                boost::asio::ip::address addr =
-                    boost::asio::ip::address::from_string(
-                        extSub->getAddress().get(), ec);
-                if (ec) continue;
-
-                if (natEpgVnid)
-                {
-                    /*
-                     * there's a NAT EPG for this subnet. create its RD, BD
-                     * and EPG.
-                     */
-                    std::shared_ptr<VOM::gbp_endpoint_group> nat_epg =
-                        EndPointGroupManager::mk_group(
-                            m_runtime, rd_uuid, natEpg.get());
-
-                    if (nat_epg)
-                    {
-                        std::shared_ptr<bridge_domain> nat_bd =
-                            nat_epg->get_bridge_domain()->get_bridge_domain();
-                        std::shared_ptr<route_domain> nat_rd =
-                            nat_epg->get_route_domain()->get_route_domain();
-                        /*
-                         * The external-subnet is a route via the NAT-EPG's
-                         recirc.
-                         * the recirc is a NAT outside interface to get NAT
-                         applied
-                         * in-2out
-                         */
-
-                        /* setup the recirc interface */
-                        VOM::interface nat_recirc_itf(
-                            "recirc-" + std::to_string(natEpgVnid.get()),
-                            interface::type_t::LOOPBACK,
-                            VOM::interface::admin_state_t::UP,
-                            *nat_rd);
-                        OM::write(rd_uuid, nat_recirc_itf);
-
-                        l2_binding nat_recirc_l2b(nat_recirc_itf, *nat_bd);
-                        OM::write(rd_uuid, nat_recirc_l2b);
-
-                        nat_binding nat_recirc_nb4(
-                            nat_recirc_itf,
-                            direction_t::INPUT,
-                            l3_proto_t::IPV4,
-                            nat_binding::zone_t::OUTSIDE);
-                        OM::write(rd_uuid, nat_recirc_nb4);
-
-                        nat_binding nat_recirc_nb6(
-                            nat_recirc_itf,
-                            direction_t::INPUT,
-                            l3_proto_t::IPV6,
-                            nat_binding::zone_t::OUTSIDE);
-                        OM::write(rd_uuid, nat_recirc_nb6);
-
-                        gbp_recirc nat_grecirc(nat_recirc_itf,
-                                               gbp_recirc::type_t::EXTERNAL,
-                                               *nat_epg);
-                        OM::write(rd_uuid, nat_grecirc);
-
-                        /* add the route for the ext-subnet */
-                        gbp_subnet gs(rd,
-                                      {addr, extSub->getPrefixLen().get()},
-                                      nat_grecirc,
-                                      *nat_epg);
-                        OM::write(rd_uuid, gs);
-                    }
-                }
-                else
-                {
-                    /*
-                     * through this EPG's uplink port
-                     */
-                    gbp_subnet gs(rd,
-                                  {addr, extSub->getPrefixLen().get()},
-                                  (m_runtime.is_transport_mode ?
-                                   gbp_subnet::type_t::TRANSPORT :
-                                   gbp_subnet::type_t::STITCHED_INTERNAL));
-                    OM::write(rd_uuid, gs);
-                }
-            }
+        }
+        else
+        {
+            /*
+             * routed via a local next-hop
+             */
+            v_route.add({v_rd, nh});
         }
     }
+
+    VOM::OM::write(uuid, v_route);
+
+    /* attach the sclass information to the route */
+    if (sclass)
+    {
+        gbp_subnet v_gs(v_rd, pfx, sclass.get());
+        VOM::OM::write(uuid, v_gs);
+    }
+    else
+    {
+        VLOGW << "No slcass for: " << uri;
+    }
 }
 
-void
-RouteManager::handle_static_update(const opflex::modb::URI &uri)
-{
-    const std::string &uuid = uri.toString();
-
-    OM::mark_n_sweep ms(uuid);
-
-    boost::optional<std::shared_ptr<modelgbp::gbp::StaticRoute>> op_static_route =
-        modelgbp::gbp::StaticRoute::resolve(m_runtime.agent.getFramework(), uri);
-
-    if (!op_static_route)
-    {
-        VLOGD << "Cleaning up for StaticRoute: " << uri;
-        return;
-    }
-
-    std::shared_ptr<modelgbp::gbp::StaticRoute> static_route = op_static_route.get();
-
-    if (!static_route->isAddressSet() || !static_route->isPrefixLenSet())
-    {
-        VLOGE << "StaticRoute with no prefix: " << uri;
-        return;
-    }
-
-    const route::prefix_t pfx(boost::asio::ip::address::from_string(static_route->getAddress("")),
-                              static_route->getPrefixLen(128));
-
-    boost::optional<std::shared_ptr<modelgbp::gbp::StaticRouteToVrfRSrc>> vrf_ref =
-        static_route->resolveGbpStaticRouteToVrfRSrc();
-    if(!vrf_ref || !vrf_ref.get()->getTargetURI())
-    {
-        VLOGE << "StaticRoute with no VRF: " << uri;
-    }
-
-    uint32_t rd_id =
-        m_runtime.id_gen.get(modelgbp::gbp::RoutingDomain::CLASS_ID,
-                             vrf_ref.get()->getTargetURI().get());
-
-    VOM::route_domain rd(rd_id);
-    VOM::OM::write(uuid, rd);
-
-
-    std::vector<std::shared_ptr<modelgbp::gbp::StaticNextHop>> nhs;
-    static_route->resolveGbpStaticNextHop(nhs);
-
-    route::ip_route vroute(rd, pfx);
-
-    for (auto &nh : nhs)
-    {
-        if (!nh->isIpSet())
-            continue;
-
-        vroute.add({rd, boost::asio::ip::address::from_string(nh->getIp(""))});
-    }
-
-    VLOGD << "StaticRoute: uri: " << uri << " = " << vroute.to_string();
-
-    VOM::OM::write(uuid, vroute);
-}
-
-void
-RouteManager::handle_remote_update(const opflex::modb::URI &uri)
-{
-    const std::string &uuid = uri.toString();
-
-    OM::mark_n_sweep ms(uuid);
-
-    boost::optional<std::shared_ptr<modelgbp::gbp::RemoteRoute>> op_remote_route =
-        modelgbp::gbp::RemoteRoute::resolve(m_runtime.agent.getFramework(), uri);
-
-    if (!op_remote_route)
-    {
-        VLOGD << "Cleaning up for RemoteRoute: " << uri;
-        return;
-    }
-
-    std::shared_ptr<modelgbp::gbp::RemoteRoute> remote_route = op_remote_route.get();
-
-    if (!remote_route->isAddressSet() || !remote_route->isPrefixLenSet())
-    {
-        VLOGE << "RemoteRoute with no prefix: " << uri;
-        return;
-    }
-
-    const route::prefix_t pfx(boost::asio::ip::address::from_string(remote_route->getAddress("")),
-                              remote_route->getPrefixLen(128));
-
-    // TODO
-}
 
 }; // namepsace VPP
 

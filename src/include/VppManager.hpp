@@ -116,8 +116,7 @@ class VppManager : public opflexagent::EndpointListener,
     virtual void contractUpdated(const opflex::modb::URI &contractURI);
     virtual void configUpdated(const opflex::modb::URI &configURI);
     virtual void externalInterfaceUpdated(const opflex::modb::URI&);
-    virtual void staticRouteUpdated(const opflex::modb::URI&);
-    virtual void remoteRouteUpdated(const opflex::modb::URI&);
+    virtual void localRouteUpdated(const opflex::modb::URI&);
     virtual void secGroupUpdated(const opflex::modb::URI &);
 
     /* Interface: PortStatusListener */

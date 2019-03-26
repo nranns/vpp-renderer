@@ -412,21 +412,12 @@ VppManager::externalInterfaceUpdated(const opflex::modb::URI &uri)
 }
 
 void
-VppManager::staticRouteUpdated(const opflex::modb::URI &uri)
+VppManager::localRouteUpdated(const opflex::modb::URI &uri)
 {
     if (stopping) return;
     m_task_queue.dispatch(
         uri.toString(),
-        bind(&RouteManager::handle_static_update, m_rdm, uri));
-}
-
-void
-VppManager::remoteRouteUpdated(const opflex::modb::URI &uri)
-{
-    if (stopping) return;
-    m_task_queue.dispatch(
-        uri.toString(),
-        bind(&RouteManager::handle_remote_update, m_rdm, uri));
+        bind(&RouteManager::handle_route_update, m_rdm, uri));
 }
 
 void

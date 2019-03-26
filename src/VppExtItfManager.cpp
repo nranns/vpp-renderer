@@ -24,6 +24,7 @@
 #include "VppUtil.hpp"
 #include "VppExtItfManager.hpp"
 #include "VppEndPointGroupManager.hpp"
+#include "VppRouteManager.hpp"
 
 using namespace VOM;
 
@@ -172,47 +173,7 @@ ExtItfManager::handle_update(const opflex::modb::URI &uri)
         return;
     }
 
-    /* To get all the external networks in an external domain */
-    std::vector<std::shared_ptr<modelgbp::gbp::L3ExternalNetwork>> ext_nets;
-    ext_dom.get()->resolveGbpL3ExternalNetwork(ext_nets);
-
-    for (std::shared_ptr<modelgbp::gbp::L3ExternalNetwork> net : ext_nets)
-    {
-        const opflex::modb::URI net_uri = net->getURI();
-
-        /* For each external network, get the sclass */
-        boost::optional<uint32_t> sclass =
-            m_runtime.policy_manager().getSclassForExternalNet(net_uri);
-
-        if (!sclass)
-        {
-            VLOGI << "External-Network; no sclass: " << net_uri;
-            continue;
-        }
-
-        /* traverse each subnet in the network */
-        std::vector<std::shared_ptr<modelgbp::gbp::ExternalSubnet>> ext_subs;
-        net->resolveGbpExternalSubnet(ext_subs);
-
-        for (std::shared_ptr<modelgbp::gbp::ExternalSubnet> snet : ext_subs)
-        {
-            VLOGD << "External-Interface; subnet:" << uri
-                  << " external:" << ext_dom.get()->getName("n/a")
-                  << " external-net:" << net->getName("n/a")
-                  << " external-sub:" << snet->getAddress("n/a") << "/"
-                  << std::to_string(snet->getPrefixLen(99))
-                  << " sclass:" << sclass.get();
-
-            if (!snet->isAddressSet() || !snet->isPrefixLenSet())
-                    continue;
-
-            boost::asio::ip::address addr =
-                boost::asio::ip::address::from_string(snet->getAddress().get());
-
-            gbp_subnet gs(rd, {addr, snet->getPrefixLen().get()}, sclass.get());
-            OM::write(uuid, gs);
-        }
-    }
+    RouteManager::mk_ext_nets(m_runtime, rd, uri, ext_dom.get());
 }
 
 }; // namepsace VPP
