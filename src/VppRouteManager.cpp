@@ -23,6 +23,7 @@
 #include <vom/gbp_endpoint_group.hpp>
 #include <vom/gbp_recirc.hpp>
 #include <vom/gbp_subnet.hpp>
+#include <vom/gbp_route_domain.hpp>
 #include <vom/interface.hpp>
 #include <vom/l2_binding.hpp>
 #include <vom/l3_binding.hpp>
@@ -182,6 +183,8 @@ RouteManager::handle_domain_update(const opflex::modb::URI &uri)
 
     VOM::route_domain rd(rdId);
     VOM::OM::write(rd_uuid, rd);
+    VOM::gbp_route_domain grd(rd);
+    VOM::OM::write(rd_uuid, grd);
 
     /*
      * For each internal Subnet
@@ -253,6 +256,12 @@ RouteManager::handle_route_update(const opflex::modb::URI &uri)
          m_runtime.uplink.local_address(),
          rd, rd_inst, pfx_addr, pfx_len,
          nh_list, are_nhs_remote, sclass);
+
+    if (!rd)
+    {
+        VLOGI << "RD not resolved for Route: " << uri;
+        return;
+    }
 
     uint32_t rd_id = m_runtime.id_gen.get(modelgbp::gbp::RoutingDomain::CLASS_ID,
                                           rd->getURI());

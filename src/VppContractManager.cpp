@@ -200,6 +200,11 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
                                         getRdId(m_id_gen, dst->getRD()));
                 nhs.insert(nh);
             }
+            if (nhs.size() == 0)
+            {
+                VLOGI << "Redirect Cntract with no NHs: " << uri;
+                continue;
+            }
 
             if (hashAlgo ==
                 modelgbp::gbp::HashingAlgorithmEnumT::CONST_SYMMETRIC)
@@ -242,6 +247,12 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
             gbp_rule gr(rule->getPriority(), gbp_rule::action_t::DENY);
             gbp_rules.insert(gr);
         }
+    }
+
+    if (gbp_rules.size() == 0)
+    {
+        VLOGI << "Contract with no rules: " << uri;
+        return;
     }
 
     for (const uint32_t &pvnid : provIds)

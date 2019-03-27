@@ -19,6 +19,7 @@
 #include <vom/gbp_ext_itf.hpp>
 #include <vom/l3_binding.hpp>
 #include <vom/route.hpp>
+#include <vom/bridge_domain_arp_entry.hpp>
 
 #include "VppLog.hpp"
 #include "VppUtil.hpp"
@@ -139,6 +140,9 @@ ExtItfManager::handle_update(const opflex::modb::URI &uri)
 
     l3_binding l3b(*bvi, {p_addr});
     OM::write(uuid, l3b);
+
+    bridge_domain_arp_entry bae(bd, p_addr, bvi->l2_address().to_mac());
+    OM::write(uuid, bae);
 
     opflexagent::PolicyManager::subnet_vector_t subnets;
 
