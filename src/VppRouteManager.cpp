@@ -281,7 +281,8 @@ RouteManager::handle_route_update(const opflex::modb::URI &uri)
              */
             vxlan_tunnel vt(m_runtime.uplink.local_address(), nh,
                             rd_inst->getEncapId().get(),
-                            vxlan_tunnel::mode_t::GBP);
+                            v_rd,
+                            vxlan_tunnel::mode_t::GBP_L3);
             OM::write(uuid, vt);
 
             neighbour::flags_t f = (neighbour::flags_t::STATIC |
@@ -291,7 +292,6 @@ RouteManager::handle_route_update(const opflex::modb::URI &uri)
             VOM::OM::write(uuid, nbr);
 
             v_route.add({nh, vt});
-
         }
         else
         {

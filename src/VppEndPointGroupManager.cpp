@@ -174,7 +174,7 @@ EndPointGroupManager::mk_mcast_tunnel(Runtime &r,
                   dst,
                   vni,
                   *r.uplink.local_interface(),
-                  vxlan_tunnel::mode_t::GBP);
+                  vxlan_tunnel::mode_t::GBP_L2);
   OM::write(key, vt);
 
   /*

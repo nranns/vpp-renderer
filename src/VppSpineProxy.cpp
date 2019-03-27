@@ -52,7 +52,7 @@ SpineProxy::mk_intf(const std::string &key,
                     uint16_t vnid)
 {
     std::shared_ptr<VOM::vxlan_tunnel> vt = std::make_shared<vxlan_tunnel>(
-        src, dst, vnid, vxlan_tunnel::mode_t::GBP);
+        src, dst, vnid, vxlan_tunnel::mode_t::GBP_L2);
     OM::write(key, *vt);
 
     return vt;
