@@ -202,7 +202,7 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
             }
             if (nhs.size() == 0)
             {
-                VLOGI << "Redirect Cntract with no NHs: " << uri;
+                VLOGI << "Redirect Contract with no NHs: " << uri;
                 continue;
             }
 
@@ -247,12 +247,6 @@ ContractManager::handle_update(const opflex::modb::URI &uri)
             gbp_rule gr(rule->getPriority(), gbp_rule::action_t::DENY);
             gbp_rules.insert(gr);
         }
-    }
-
-    if (gbp_rules.size() == 0)
-    {
-        VLOGI << "Contract with no rules: " << uri;
-        return;
     }
 
     for (const uint32_t &pvnid : provIds)

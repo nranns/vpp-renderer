@@ -97,8 +97,10 @@ ExtItfManager::handle_update(const opflex::modb::URI &uri)
       m_runtime.policy_manager().getBDMulticastIPForExternalInterface(uri);
     boost::optional<uint32_t> bd_vnid =
       m_runtime.policy_manager().getBDVnidForExternalInterface(uri);
+    boost::optional<uint32_t> rd_vnid =
+      m_runtime.policy_manager().getRDVnidForExternalInterface(uri);
 
-    if (!(bd_vnid && maddr))
+    if (!(rd_vnid && bd_vnid && maddr))
     {
       VLOGE << "External-Interface; no VNI/mcast-address: " << uri;
       return;
@@ -114,8 +116,8 @@ ExtItfManager::handle_update(const opflex::modb::URI &uri)
     gbp_bridge_domain gbd(bd, *bvi, {}, vt_mc,
                           gbp_bridge_domain::flags_t::DO_NOT_LEARN);
     OM::write(uuid, gbd);
-    gbp_route_domain grd(rd);
-    OM::write(uuid, grd);
+    std::shared_ptr<VOM::gbp_route_domain> grd =
+        EndPointGroupManager::mk_gbp_rd(m_runtime, uuid, rd, rd_vnid.get());
 
     /*
      * the encap on the external-interface is a vlan ID
@@ -162,7 +164,7 @@ ExtItfManager::handle_update(const opflex::modb::URI &uri)
     /*
      * This BVI is the ExternalInterface
      */
-    gbp_ext_itf gei(*bvi, gbd, grd);
+    gbp_ext_itf gei(*bvi, gbd, *grd);
     OM::write(uuid, gei);
 
     /*

@@ -17,6 +17,7 @@ namespace VOM
 {
 class gbp_endpoint_group;
 class gbp_bridge_domain;
+class gbp_route_domain;
 class bridge_domain;
 class route_domain;
 class vxlan_tunnel;
@@ -66,6 +67,12 @@ class EndPointGroupManager
              const std::string &key,
              const opflex::modb::URI &uri,
 	     bool is_ext = false);
+
+    static std::shared_ptr<VOM::gbp_route_domain>
+    mk_gbp_rd(Runtime &r,
+              const std::string &key,
+              const VOM::route_domain &rd,
+              u16 vnid);
 
     static std::shared_ptr<vxlan_tunnel>
     mk_mcast_tunnel(Runtime &r,

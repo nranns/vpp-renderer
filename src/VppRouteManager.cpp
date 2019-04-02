@@ -162,7 +162,16 @@ RouteManager::handle_domain_update(const opflex::modb::URI &uri)
         m_runtime.id_gen.erase(modelgbp::gbp::RoutingDomain::CLASS_ID, uri);
         return;
     }
+    boost::optional<std::shared_ptr<modelgbp::gbpe::InstContext>> rd_inst;
     std::shared_ptr<modelgbp::gbp::RoutingDomain> opf_rd = op_opf_rd.get();
+
+    rd_inst = opf_rd->resolveGbpeInstContext();
+
+    if (!rd_inst || !rd_inst.get()->getEncapId())
+    {
+        VLOGI << "RD-inst not resolved for: " << uri;
+        return;
+    }
 
     const std::string &rd_uuid = uri.toString();
 
@@ -183,8 +192,10 @@ RouteManager::handle_domain_update(const opflex::modb::URI &uri)
 
     VOM::route_domain rd(rdId);
     VOM::OM::write(rd_uuid, rd);
-    VOM::gbp_route_domain grd(rd);
-    VOM::OM::write(rd_uuid, grd);
+
+    std::shared_ptr<VOM::gbp_route_domain> v_grd =
+        EndPointGroupManager::mk_gbp_rd(m_runtime, rd_uuid, rd,
+                                        rd_inst.get()->getEncapId().get());
 
     /*
      * For each internal Subnet
@@ -206,7 +217,7 @@ RouteManager::handle_domain_update(const opflex::modb::URI &uri)
          * add a route for the subnet in VPP's route-domain via
          * the EPG's uplink, DVR styleee
          */
-        gbp_subnet gs(rd, {addr, sn.second},
+        gbp_subnet gs(*v_grd, {addr, sn.second},
                       (m_runtime.is_transport_mode ?
                        gbp_subnet::type_t::TRANSPORT :
                        gbp_subnet::type_t::STITCHED_INTERNAL));
@@ -257,9 +268,9 @@ RouteManager::handle_route_update(const opflex::modb::URI &uri)
          rd, rd_inst, pfx_addr, pfx_len,
          nh_list, are_nhs_remote, sclass);
 
-    if (!rd)
+    if (!rd || !rd_inst || !rd_inst->getEncapId())
     {
-        VLOGI << "RD not resolved for Route: " << uri;
+        VLOGI << "RD/RD-inst not resolved for Route: " << uri;
         return;
     }
 
@@ -268,6 +279,10 @@ RouteManager::handle_route_update(const opflex::modb::URI &uri)
  
     VOM::route_domain v_rd(rd_id);
     VOM::OM::write(uuid, v_rd);
+
+    std::shared_ptr<VOM::gbp_route_domain> v_grd =
+        EndPointGroupManager::mk_gbp_rd(m_runtime, uuid, v_rd,
+                                        rd_inst->getEncapId().get());
 
     route::prefix_t pfx(pfx_addr, pfx_len);
     route::ip_route v_route(v_rd, pfx);
@@ -307,7 +322,7 @@ RouteManager::handle_route_update(const opflex::modb::URI &uri)
     /* attach the sclass information to the route */
     if (sclass)
     {
-        gbp_subnet v_gs(v_rd, pfx, sclass.get());
+        gbp_subnet v_gs(*v_grd, pfx, sclass.get());
         VOM::OM::write(uuid, v_gs);
     }
     else

@@ -352,7 +352,7 @@ class VppManagerFixture : public ModbFixture
         epg1->addGbpEpGroupToNetworkRSrc()->setTargetBridgeDomain(
             bd1->getURI());
         epg1->addGbpeInstContext()->setEncapId(0xA0B);
-        epg1->addGbpeInstContext()->setClassid(0xBB);
+        epg1->addGbpeInstContext()->setClassid(0xB0B);
 
         epg2 = space->addGbpEpGroup("epg2");
         epg2->addGbpeInstContext()->setClassid(0xCA);
@@ -822,7 +822,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_group_add_del, VppStitchedManagerFixture)
     gbp_bridge_domain *v_gbd1 = new gbp_bridge_domain(v_bd_epg1, *v_bvi_epg1);
     WAIT_FOR_MATCH(*v_gbd1);
     gbp_endpoint_group *v_epg1 =
-        new gbp_endpoint_group(0xA0B, 0xBB, v_upl_epg1, v_rd, *v_gbd1);
+        new gbp_endpoint_group(0xA0B, 0xB0B, v_upl_epg1, v_rd, *v_gbd1);
     v_epg1->set({120});
     WAIT_FOR_MATCH(*v_epg1);
 
@@ -999,7 +999,7 @@ BOOST_FIXTURE_TEST_CASE(endpoint_add_del, VppStitchedManagerFixture)
     gbp_bridge_domain *v_gbd1 = new gbp_bridge_domain(v_bd_epg1, *v_bvi_epg1);
     WAIT_FOR_MATCH(*v_gbd1);
     gbp_endpoint_group *v_epg1 =
-        new gbp_endpoint_group(0xA0B, 0xBB, v_upl_epg1, v_rd, *v_gbd1);
+        new gbp_endpoint_group(0xA0B, 0xB0B, v_upl_epg1, v_rd, *v_gbd1);
     v_epg1->set({120});
     WAIT_FOR_MATCH(*v_epg1);
 
@@ -1229,6 +1229,11 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
 
 BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
 {
+    address_v4 spine_v4, spine_v6;
+
+    framework.getV4Proxy(spine_v4);
+    framework.getV6Proxy(spine_v6);
+
     do_dhcp();
     vppManager.externalInterfaceUpdated(ext_itf0->getURI());
 
@@ -1266,7 +1271,15 @@ BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
     gbp_bridge_domain *v_gbd =
         new gbp_bridge_domain(v_bd, v_bvi, {}, vt_bd_mcast);
     WAIT_FOR_MATCH(*v_gbd);
-    gbp_route_domain *v_grd = new gbp_route_domain(v_rd);
+
+    vxlan_tunnel *vt_v4 =
+        new vxlan_tunnel(host, spine_v4, 1122, vxlan_tunnel::mode_t::GBP_L2);
+    WAIT_FOR_MATCH(*vt_v4);
+    vxlan_tunnel *vt_v6 =
+        new vxlan_tunnel(host, spine_v6, 1122, vxlan_tunnel::mode_t::GBP_L2);
+    WAIT_FOR_MATCH(*vt_v6);
+
+    gbp_route_domain *v_grd = new gbp_route_domain(v_rd, *vt_v4, *vt_v6);
     WAIT_FOR_MATCH(*v_grd);
 
     /* 0x80000064 is the internally generated EPG-ID for each Ext-net */
@@ -1322,6 +1335,10 @@ BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
 
     WAIT_FOR_NOT_PRESENT(*v_grd);
     WAIT_FOR_NOT_PRESENT(*v_gbd);
+
+    delete v_grd;
+    delete vt_v4;
+    delete vt_v6;
 }
 
 /* BOOST_FIXTURE_TEST_CASE(static_route, VppTransportManagerFixture) */

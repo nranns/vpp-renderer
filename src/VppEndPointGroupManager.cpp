@@ -244,6 +244,34 @@ EndPointGroupManager::mk_bvi(Runtime &r,
   return bvi;
 }
 
+std::shared_ptr<VOM::gbp_route_domain>
+EndPointGroupManager::mk_gbp_rd(Runtime &r,
+                                const std::string &key,
+                                const VOM::route_domain &rd,
+                                u16 vnid)
+{
+    std::shared_ptr<VOM::gbp_route_domain> grd;
+    std::shared_ptr<SpineProxy> spine_proxy = r.uplink.spine_proxy();
+
+    if (spine_proxy)
+    {
+        std::shared_ptr<vxlan_tunnel> vt_v4, vt_v6;
+
+        vt_v4 = spine_proxy->mk_v4(key, vnid);
+        vt_v6 = spine_proxy->mk_v6(key, vnid);
+
+        grd = std::make_shared<gbp_route_domain>(rd, vt_v4, vt_v6);
+    }
+    else
+    {
+        grd = std::make_shared<gbp_route_domain>(rd);
+    }
+
+    OM::write(key, *grd);
+
+    return grd;
+}
+
 std::shared_ptr<VOM::gbp_endpoint_group>
 EndPointGroupManager::mk_group(Runtime &runtime,
                                const std::string &key,
@@ -313,7 +341,7 @@ EndPointGroupManager::mk_group(Runtime &runtime,
 
             if (bd_vnid && rd_vnid && bd_mcast)
             {
-              std::shared_ptr<vxlan_tunnel> vt_mc, vt_v4, vt_v6, vt_mac;
+              std::shared_ptr<vxlan_tunnel> vt_mc, vt_mac;
 
               boost::optional<std::shared_ptr<modelgbp::gbp::FloodDomain>> flood_domain =
                 runtime.policy_manager().getFDForGroup(uri);
@@ -323,8 +351,6 @@ EndPointGroupManager::mk_group(Runtime &runtime,
                   if (modelgbp::gbp::UnknownFloodModeEnumT::CONST_HWPROXY ==
                       flood_domain.get()->getUnknownFloodMode(0))
                     {
-                      vt_v4 = spine_proxy->mk_v4(key, rd_vnid.get());
-                      vt_v6 = spine_proxy->mk_v6(key, rd_vnid.get());
                       vt_mac = spine_proxy->mk_mac(key, bd_vnid.get());
                     }
                   else if (modelgbp::gbp::UnknownFloodModeEnumT::CONST_DROP ==
@@ -339,10 +365,10 @@ EndPointGroupManager::mk_group(Runtime &runtime,
               l2_binding l2_vxbd(*vt_mc, bd);
               OM::write(key, l2_vxbd);
 
-              gbp_route_domain grd(rd, vt_v4, vt_v6);
-              OM::write(key, grd);
+              std::shared_ptr<VOM::gbp_route_domain> grd =
+                mk_gbp_rd(runtime, key, rd, rd_vnid.get());
 
-              gbp_vxlan gvx_rd(rd_vnid.get(), grd,
+              gbp_vxlan gvx_rd(rd_vnid.get(), *grd,
                                runtime.uplink.local_address().to_v4());
               OM::write(key, gvx_rd);
 
@@ -365,7 +391,7 @@ EndPointGroupManager::mk_group(Runtime &runtime,
                                runtime.uplink.local_address().to_v4());
               OM::write(key, gvx_bd);
 
-              gepg = std::make_shared<gbp_endpoint_group>(fwd.vnid, fwd.sclass, grd, gbd);
+              gepg = std::make_shared<gbp_endpoint_group>(fwd.vnid, fwd.sclass, *grd, gbd);
             }
             else
             {
@@ -435,7 +461,7 @@ EndPointGroupManager::handle_update(const opflex::modb::URI &epgURI)
 
     opflexagent::PolicyManager &pm = m_runtime.policy_manager();
 
-    if (!m_runtime.policy_manager().groupExists(epgURI))
+    if (!pm.groupExists(epgURI))
     {
         VLOGD << "Deleting endpoint-group:" << epgURI;
         return;
@@ -470,7 +496,7 @@ EndPointGroupManager::handle_update(const opflex::modb::URI &epgURI)
          * For each subnet the EPG has
          */
         opflexagent::PolicyManager::subnet_vector_t subnets;
-        m_runtime.policy_manager().getSubnetsForGroup(epgURI, subnets);
+        pm.getSubnetsForGroup(epgURI, subnets);
 
         for (auto sn : subnets)
         {
