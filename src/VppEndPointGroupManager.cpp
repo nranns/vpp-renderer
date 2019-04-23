@@ -248,7 +248,7 @@ std::shared_ptr<VOM::gbp_route_domain>
 EndPointGroupManager::mk_gbp_rd(Runtime &r,
                                 const std::string &key,
                                 const VOM::route_domain &rd,
-                                u16 vnid)
+                                uint32_t vnid)
 {
     std::shared_ptr<VOM::gbp_route_domain> grd;
     std::shared_ptr<SpineProxy> spine_proxy = r.uplink.spine_proxy();

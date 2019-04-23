@@ -72,7 +72,7 @@ class EndPointGroupManager
     mk_gbp_rd(Runtime &r,
               const std::string &key,
               const VOM::route_domain &rd,
-              u16 vnid);
+              uint32_t vnid);
 
     static std::shared_ptr<vxlan_tunnel>
     mk_mcast_tunnel(Runtime &r,

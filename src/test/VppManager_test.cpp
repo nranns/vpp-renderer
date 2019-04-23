@@ -363,7 +363,7 @@ class VppManagerFixture : public ModbFixture
          * L3Out objects
          */
         ext_rd0 = space->addGbpRoutingDomain("ext_rd0");
-        ext_rd0->addGbpeInstContext()->setEncapId(1122);
+        ext_rd0->addGbpeInstContext()->setEncapId(0x010203);
         ext_dom = ext_rd0->addGbpL3ExternalDomain("ext_dom0");
         ext_net0 = ext_dom->addGbpL3ExternalNetwork("ext_dom0_net0");
         ext_net0->addGbpeInstContext()->setClassid(1234);
@@ -1272,11 +1272,11 @@ BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
         new gbp_bridge_domain(v_bd, v_bvi, {}, vt_bd_mcast);
     WAIT_FOR_MATCH(*v_gbd);
 
-    vxlan_tunnel *vt_v4 =
-        new vxlan_tunnel(host, spine_v4, 1122, vxlan_tunnel::mode_t::GBP_L2);
+    vxlan_tunnel *vt_v4 = new vxlan_tunnel(host, spine_v4, 0x010203,
+                                           vxlan_tunnel::mode_t::GBP_L2);
     WAIT_FOR_MATCH(*vt_v4);
-    vxlan_tunnel *vt_v6 =
-        new vxlan_tunnel(host, spine_v6, 1122, vxlan_tunnel::mode_t::GBP_L2);
+    vxlan_tunnel *vt_v6 = new vxlan_tunnel(host, spine_v6, 0x010203,
+                                           vxlan_tunnel::mode_t::GBP_L2);
     WAIT_FOR_MATCH(*vt_v6);
 
     gbp_route_domain *v_grd = new gbp_route_domain(v_rd, *vt_v4, *vt_v6);
