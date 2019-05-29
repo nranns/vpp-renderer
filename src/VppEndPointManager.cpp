@@ -362,7 +362,7 @@ EndPointManager::handle_update_i(const std::string &uuid, bool is_external)
             const opflexagent::EndpointListener::uri_set_t &secGrps =
                 ep.getSecurityGroups();
             const std::string secGrpId = SecurityGroupManager::get_id(secGrps);
-            hash<std::string> string_hash;
+            std::hash<std::string> string_hash;
             const std::string secGrpKey = std::to_string(string_hash(secGrpId));
 
             ACL::l3_list::rules_t in_rules, out_rules;
