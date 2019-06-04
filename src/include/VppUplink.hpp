@@ -91,7 +91,7 @@ class Uplink : public dhcp_client::event_listener
 
     const boost::asio::ip::address &local_address() const;
     const std::shared_ptr<interface> local_interface() const;
-
+    const std::string uplink_l2_address() const;
     /**
      * Handle notifications about DHCP complete
      */

@@ -167,6 +167,16 @@ Uplink::local_address() const
     return m_pfx.address();
 }
 
+const std::string
+Uplink::uplink_l2_address() const
+{
+    const std::string str("");
+    if (m_uplink) {
+        return m_uplink->l2_address().to_string();
+    }
+    return str;
+}
+
 const std::shared_ptr<interface>
 Uplink::local_interface() const
 {

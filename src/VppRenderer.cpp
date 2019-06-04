@@ -72,6 +72,7 @@ VppRenderer::VppRenderer(opflexagent::Agent &agent,
     : Renderer(agent)
     , idGen(idGen)
     , vppManager(vppManager)
+    , tunnelEpManager(&agent)
     , started(false)
 {
     LOG(INFO) << "Vpp Renderer";
@@ -125,16 +126,19 @@ VppRenderer::setProperties(const boost::property_tree::ptree &properties)
     static const std::string WIP("ip-address");
 
     auto vxlan = properties.get_child_optional(ENCAP_VXLAN);
+    auto ivxlan = properties.get_child_optional(ENCAP_IVXLAN);
     auto vlan = properties.get_child_optional(ENCAP_VLAN);
     auto vr = properties.get_child_optional(VIRTUAL_ROUTER);
     auto x_connect = properties.get_child_optional(CROSS_CONNECT);
 
     if (vlan)
     {
-        vppManager->uplink().set(vlan.get().get<std::string>(UPLINK_IFACE, ""),
-                                 vlan.get().get<uint16_t>(UPLINK_VLAN, 0),
+        uplinkIface = vlan.get().get<std::string>(UPLINK_IFACE, "");
+        uplinkVlan = vlan.get().get<uint16_t>(UPLINK_VLAN, 0);
+        vppManager->uplink().set(uplinkIface, uplinkVlan,
                                  vlan.get().get<std::string>(ENCAP_IFACE, ""));
         auto slaves = vlan.get().get_child_optional(UPLINK_SLAVES);
+
 
         if (slaves)
         {
@@ -153,6 +157,7 @@ VppRenderer::setProperties(const boost::property_tree::ptree &properties)
                 LOG(opflexagent::INFO) << d.second.data();
             }
         }
+        encapType = encapTypeVlan;
     }
     else if (vxlan)
     {
@@ -170,14 +175,45 @@ VppRenderer::setProperties(const boost::property_tree::ptree &properties)
         }
         else
         {
+            uplinkIface = vxlan.get().get<std::string>(UPLINK_IFACE, "");
+            uplinkVlan = vxlan.get().get<uint16_t>(UPLINK_VLAN, 0);
             vppManager->uplink().set(
-                vxlan.get().get<std::string>(UPLINK_IFACE, ""),
-                vxlan.get().get<uint16_t>(UPLINK_VLAN, 0),
+                uplinkIface,
+                uplinkVlan,
                 vxlan.get().get<std::string>(ENCAP_IFACE, ""),
                 remote_ip,
                 vxlan.get().get<uint16_t>(REMOTE_PORT, 4789));
             auto slaves = properties.get_child_optional(UPLINK_SLAVES);
         }
+        encapType = encapTypeVxlan;
+    }
+    else if (ivxlan)
+    {
+        uplinkIface = ivxlan.get().get<std::string>(UPLINK_IFACE, "");
+        uplinkVlan = ivxlan.get().get<uint16_t>(UPLINK_VLAN, 0);
+        vppManager->uplink().set(uplinkIface,
+                                 uplinkVlan,
+                                 ivxlan.get().get<std::string>(ENCAP_IFACE, ""));
+        auto slaves = ivxlan.get().get_child_optional(UPLINK_SLAVES);
+
+        if (slaves)
+        {
+            for (auto s : slaves.get())
+            {
+                vppManager->uplink().insert_slave_ifaces(s.second.data());
+                LOG(opflexagent::INFO) << s.second.data();
+            }
+        }
+        auto dhcp_options = ivxlan.get().get_child_optional(DHCP_OPTIONS);
+        if (dhcp_options)
+        {
+            for (auto d : dhcp_options.get())
+            {
+                vppManager->uplink().insert_dhcp_options(d.second.data());
+                LOG(opflexagent::INFO) << d.second.data();
+            }
+        }
+        encapType = encapTypeIvxlan;
     }
     if (vr)
     {
@@ -239,6 +275,13 @@ VppRenderer::start()
     started = true;
     vppManager->start();
     vppManager->registerModbListeners();
+    if ((encapType == encapTypeVxlan) ||
+        (encapType == encapTypeIvxlan)) {
+        tunnelEpManager.setUplinkIface(uplinkIface);
+        tunnelEpManager.setUplinkVlan(uplinkVlan);
+        tunnelEpManager.setParentRenderer(this);
+        tunnelEpManager.start();
+    }
     LOG(opflexagent::INFO) << "Starting vpp renderer plugin";
 }
 
@@ -249,7 +292,28 @@ VppRenderer::stop()
     if (!started) return;
     started = false;
     LOG(opflexagent::INFO) << "Stopping vpp renderer plugin";
+    if ((encapType == encapTypeVxlan) ||
+        (encapType == encapTypeIvxlan)) {
+            tunnelEpManager.stop();
+        }
     vppManager->stop();
+}
+
+std::string VppRenderer::getUplinkAddress()
+{
+    const boost::asio::ip::address addr =
+        vppManager->uplink().local_address();
+    boost::system::error_code ec;
+    string address = addr.to_string(ec);
+    if(ec) {
+        LOG(opflexagent::ERROR) << "Failed to stringize uplink address" << ec;
+    }
+    return address;
+}
+
+std::string VppRenderer::getUplinkMac()
+{
+    return vppManager->uplink().uplink_l2_address();
 }
 
 } // namespace VPP
