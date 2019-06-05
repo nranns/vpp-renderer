@@ -18,6 +18,7 @@
 #include <opflex/ofcore/OFFramework.h>
 #include <opflexagent/IdGenerator.h>
 #include <opflexagent/Renderer.h>
+#include <opflexagent/TunnelEpManager.h>
 
 #include <vom/hw.hpp>
 
@@ -57,6 +58,23 @@ class VppRenderer : public opflexagent::Renderer
     virtual void start();
     virtual void stop();
 
+    /**
+     * Is uplink address owned by renderer
+     */
+    virtual bool isUplinkAddressImplemented() {
+        return true;
+    }
+
+    /**
+     * Get uplink address from renderer
+     */
+    virtual std::string getUplinkAddress();
+
+    /**
+     * Get uplink l2 address from renderer
+     */
+    virtual std::string getUplinkMac();
+
   private:
     /**
      * The socket used for inspecting the state built in VPP-manager
@@ -72,6 +90,17 @@ class VppRenderer : public opflexagent::Renderer
      * Single instance of the VPP manager
      */
     VppManager *vppManager;
+
+    /**
+     * Opflex Tunnel EP Manager
+     */
+    TunnelEpManager tunnelEpManager;
+
+    std::string uplinkIface;
+    uint16_t uplinkVlan;
+
+    enum EncapType { encapTypeNone, encapTypeVlan, encapTypeVxlan, encapTypeIvxlan };
+    EncapType encapType;
 
     /**
      * has this party started.
