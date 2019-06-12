@@ -40,7 +40,8 @@ Uplink::Uplink(opflexagent::Agent &agent)
 {
 }
 
-const std::string & Uplink::system_name() const
+const std::string &
+Uplink::system_name() const
 {
     return m_system_name;
 }
@@ -83,8 +84,8 @@ Uplink::configure_tap(const route::prefix_t &pfx)
     tap_interface itf("tap0", interface::admin_state_t::UP, pfx, tap_mac);
     VOM::OM::write(UPLINK_KEY, itf);
 
-    neighbour::flags_t f = (neighbour::flags_t::STATIC |
-                            neighbour::flags_t::NO_FIB_ENTRY);
+    neighbour::flags_t f =
+        (neighbour::flags_t::STATIC | neighbour::flags_t::NO_FIB_ENTRY);
 
     neighbour tap_nbr(itf, pfx.address(), tap_mac, f);
     VOM::OM::write(UPLINK_KEY, tap_nbr);
@@ -171,7 +172,8 @@ const std::string
 Uplink::uplink_l2_address() const
 {
     const std::string str("");
-    if (m_uplink) {
+    if (m_uplink)
+    {
         return m_uplink->l2_address().to_string();
     }
     return str;

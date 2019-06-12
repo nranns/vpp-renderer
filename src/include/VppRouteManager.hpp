@@ -28,10 +28,12 @@ class RouteManager
     void handle_domain_update(const opflex::modb::URI &uri);
     void handle_route_update(const opflex::modb::URI &uri);
 
-    static void mk_ext_nets(Runtime &runtime,
-                            route_domain &rd,
-                            const opflex::modb::URI &uri,
-                            std::shared_ptr<modelgbp::gbp::L3ExternalDomain> ext_dom);
+    static void
+    mk_ext_nets(Runtime &runtime,
+                route_domain &rd,
+                const opflex::modb::URI &uri,
+                std::shared_ptr<modelgbp::gbp::L3ExternalDomain> ext_dom);
+
   private:
     /**
      * Reference to the runtime data

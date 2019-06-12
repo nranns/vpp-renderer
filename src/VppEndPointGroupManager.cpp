@@ -12,7 +12,11 @@
 #include <opflexagent/Agent.h>
 #include <opflexagent/PolicyManager.h>
 
+#include <modelgbp/gbp/AddressResModeEnumT.hpp>
+#include <modelgbp/gbp/BcastFloodModeEnumT.hpp>
 #include <modelgbp/gbp/BridgeDomain.hpp>
+#include <modelgbp/gbp/EpLearningModeEnumT.hpp>
+#include <modelgbp/gbp/FloodDomain.hpp>
 #include <modelgbp/gbp/RoutingDomain.hpp>
 #include <modelgbp/gbp/UnknownFloodModeEnumT.hpp>
 
@@ -60,7 +64,8 @@ EndPointGroupManager::get_fwd_info_ext_itf(
 
     fwd.vnid = 0xdeadbeaf;
 
-    boost::optional<uint32_t> sclass = polMgr.getSclassForExternalInterface(uri);
+    boost::optional<uint32_t> sclass =
+        polMgr.getSclassForExternalInterface(uri);
 
     if (!sclass)
     {
@@ -70,9 +75,8 @@ EndPointGroupManager::get_fwd_info_ext_itf(
 
     boost::optional<std::shared_ptr<modelgbp::gbp::RoutingDomain>> epgRd =
         polMgr.getRDForExternalInterface(uri);
-    boost::optional<std::shared_ptr<modelgbp::gbp::ExternalL3BridgeDomain>> epgBd =
-        polMgr.getBDForExternalInterface(uri);
-
+    boost::optional<std::shared_ptr<modelgbp::gbp::ExternalL3BridgeDomain>>
+        epgBd = polMgr.getBDForExternalInterface(uri);
 
     if (epgRd)
     {
@@ -81,11 +85,11 @@ EndPointGroupManager::get_fwd_info_ext_itf(
             fwd.rdId = runtime.id_gen.get(
                 modelgbp::gbp::RoutingDomain::CLASS_ID, fwd.rdURI.get());
         else
-          throw NoFowardInfoException("No RD-URI for External-Interface");
+            throw NoFowardInfoException("No RD-URI for External-Interface");
     }
     else
     {
-      throw NoFowardInfoException("No RD for External-Interface");
+        throw NoFowardInfoException("No RD for External-Interface");
     }
 
     if (epgBd)
@@ -99,7 +103,6 @@ EndPointGroupManager::get_fwd_info_ext_itf(
         throw NoFowardInfoException("No BD for EPG");
     }
     return fwd;
-
 }
 
 EndPointGroupManager::ForwardInfo
@@ -129,7 +132,6 @@ EndPointGroupManager::get_fwd_info(
     boost::optional<std::shared_ptr<modelgbp::gbp::BridgeDomain>> epgBd =
         polMgr.getBDForGroup(uri);
 
-
     if (epgRd)
     {
         fwd.rdURI = epgRd.get()->getURI();
@@ -137,11 +139,11 @@ EndPointGroupManager::get_fwd_info(
             fwd.rdId = runtime.id_gen.get(
                 modelgbp::gbp::RoutingDomain::CLASS_ID, fwd.rdURI.get());
         else
-          throw NoFowardInfoException("No RD-URI for EPG");
+            throw NoFowardInfoException("No RD-URI for EPG");
     }
     else
     {
-      throw NoFowardInfoException("No RD for EPG");
+        throw NoFowardInfoException("No RD for EPG");
     }
 
     if (epgBd)
@@ -163,43 +165,40 @@ EndPointGroupManager::mk_mcast_tunnel(Runtime &r,
                                       uint32_t vni,
                                       const std::string &maddr)
 {
-  /*
-   * Add the Vxlan mcast tunnel that will carry the broadcast
-   * and multicast traffic
-   */
-  boost::asio::ip::address dst =
-    boost::asio::ip::address::from_string(maddr);
+    /*
+     * Add the Vxlan mcast tunnel that will carry the broadcast
+     * and multicast traffic
+     */
+    boost::asio::ip::address dst = boost::asio::ip::address::from_string(maddr);
 
-  vxlan_tunnel vt(r.uplink.local_address(),
-                  dst,
-                  vni,
-                  *r.uplink.local_interface(),
-                  vxlan_tunnel::mode_t::GBP_L2);
-  OM::write(key, vt);
+    vxlan_tunnel vt(r.uplink.local_address(),
+                    dst,
+                    vni,
+                    *r.uplink.local_interface(),
+                    vxlan_tunnel::mode_t::GBP_L2);
+    OM::write(key, vt);
 
-  /*
-   * add the mcast group to accept via the uplink and
-   * forward locally.
-   */
-  route::path via_uplink(*r.uplink.local_interface(),
-                         nh_proto_t::IPV4);
-  route::ip_mroute mroute({dst.to_v4(), 32});
+    /*
+     * add the mcast group to accept via the uplink and
+     * forward locally.
+     */
+    route::path via_uplink(*r.uplink.local_interface(), nh_proto_t::IPV4);
+    route::ip_mroute mroute({dst.to_v4(), 32});
 
-  mroute.add(via_uplink, route::itf_flags_t::ACCEPT);
-  mroute.add({route::path::special_t::LOCAL},
-             route::itf_flags_t::FORWARD);
-  OM::write(key, mroute);
+    mroute.add(via_uplink, route::itf_flags_t::ACCEPT);
+    mroute.add({route::path::special_t::LOCAL}, route::itf_flags_t::FORWARD);
+    OM::write(key, mroute);
 
-  /*
-   * join the group on the uplink interface
-   */
-  igmp_binding igmp_b(*r.uplink.local_interface());
-  OM::write(key, igmp_b);
+    /*
+     * join the group on the uplink interface
+     */
+    igmp_binding igmp_b(*r.uplink.local_interface());
+    OM::write(key, igmp_b);
 
-  igmp_listen igmp_l(igmp_b, dst.to_v4());
-  OM::write(key, igmp_l);
+    igmp_listen igmp_l(igmp_b, dst.to_v4());
+    OM::write(key, igmp_l);
 
-  return (vt.singular());
+    return (vt.singular());
 }
 
 std::shared_ptr<VOM::interface>
@@ -209,39 +208,39 @@ EndPointGroupManager::mk_bvi(Runtime &r,
                              const route_domain &rd,
                              const boost::optional<mac_address_t> &mac)
 {
-  std::shared_ptr<interface> bvi =
-    std::make_shared<interface>("bvi-" + std::to_string(bd.id()),
-                                interface::type_t::BVI,
-                                interface::admin_state_t::UP,
-                                rd);
-  if (mac)
-  {
-    bvi->set(mac.get());
-  }
-  else if (r.vr)
-  {
+    std::shared_ptr<interface> bvi =
+        std::make_shared<interface>("bvi-" + std::to_string(bd.id()),
+                                    interface::type_t::BVI,
+                                    interface::admin_state_t::UP,
+                                    rd);
+    if (mac)
+    {
+        bvi->set(mac.get());
+    }
+    else if (r.vr)
+    {
+        /*
+         * Set the BVI's MAC address to the Virtual Router
+         * address, so packets destined to the VR are handled
+         * by layer 3.
+         */
+        bvi->set(r.vr->mac());
+    }
+    OM::write(key, *bvi);
+
     /*
-     * Set the BVI's MAC address to the Virtual Router
-     * address, so packets destined to the VR are handled
-     * by layer 3.
+     * Add the BVI to the BD
      */
-    bvi->set(r.vr->mac());
-  }
-  OM::write(key, *bvi);
+    l2_binding l2_bvi(*bvi, bd);
+    OM::write(key, l2_bvi);
 
-  /*
-   * Add the BVI to the BD
-   */
-  l2_binding l2_bvi(*bvi, bd);
-  OM::write(key, l2_bvi);
+    /*
+     * the bridge is not in learning mode. So add an L2FIB entry for the BVI
+     */
+    bridge_domain_entry be(bd, bvi->l2_address().to_mac(), *bvi);
+    OM::write(key, be);
 
-  /*
-   * the bridge is not in learning mode. So add an L2FIB entry for the BVI
-   */
-  bridge_domain_entry be(bd, bvi->l2_address().to_mac(), *bvi);
-  OM::write(key, be);
-
-  return bvi;
+    return bvi;
 }
 
 std::shared_ptr<VOM::gbp_route_domain>
@@ -276,7 +275,7 @@ std::shared_ptr<VOM::gbp_endpoint_group>
 EndPointGroupManager::mk_group(Runtime &runtime,
                                const std::string &key,
                                const opflex::modb::URI &uri,
-			       bool is_ext)
+                               bool is_ext)
 {
     std::shared_ptr<VOM::gbp_endpoint_group> gepg;
 
@@ -288,13 +287,14 @@ EndPointGroupManager::mk_group(Runtime &runtime,
         EndPointGroupManager::ForwardInfo fwd;
         gbp_endpoint_group::retention_t retention(120);
 
-	if (is_ext)
-	    fwd = get_fwd_info_ext_itf(runtime, uri);
-	else
-	    fwd = get_fwd_info(runtime, uri);
+        if (is_ext)
+            fwd = get_fwd_info_ext_itf(runtime, uri);
+        else
+            fwd = get_fwd_info(runtime, uri);
 
-        boost::optional<std::shared_ptr<modelgbp::gbpe::EndpointRetention>> ret_pol =
-            runtime.policy_manager().getL2EPRetentionPolicyForGroup(uri);
+        boost::optional<std::shared_ptr<modelgbp::gbpe::EndpointRetention>>
+            ret_pol =
+                runtime.policy_manager().getL2EPRetentionPolicyForGroup(uri);
 
         if (ret_pol)
         {
@@ -326,76 +326,122 @@ EndPointGroupManager::mk_group(Runtime &runtime,
             boost::optional<uint32_t> rd_vnid;
             boost::optional<uint32_t> bd_vnid;
             boost::optional<std::string> bd_mcast;
-	    if (is_ext)
-	    {
-		rd_vnid = runtime.policy_manager().getRDVnidForExternalInterface(uri);
-		bd_vnid = runtime.policy_manager().getBDVnidForExternalInterface(uri);
-		bd_mcast = runtime.policy_manager().getBDMulticastIPForExternalInterface(uri);
-	    }
-	    else
-	    {
-		rd_vnid = runtime.policy_manager().getRDVnidForGroup(uri);
-		bd_vnid = runtime.policy_manager().getBDVnidForGroup(uri);
-		bd_mcast = runtime.policy_manager().getBDMulticastIPForGroup(uri);
-	    }
-
-            if (bd_vnid && rd_vnid && bd_mcast)
+            if (is_ext)
             {
-              std::shared_ptr<vxlan_tunnel> vt_mc, vt_mac;
-
-              boost::optional<std::shared_ptr<modelgbp::gbp::FloodDomain>> flood_domain =
-                runtime.policy_manager().getFDForGroup(uri);
-
-              if (flood_domain)
-                {
-                  if (modelgbp::gbp::UnknownFloodModeEnumT::CONST_HWPROXY ==
-                      flood_domain.get()->getUnknownFloodMode(0))
-                    {
-                      vt_mac = spine_proxy->mk_mac(key, bd_vnid.get());
-                    }
-                  else if (modelgbp::gbp::UnknownFloodModeEnumT::CONST_DROP ==
-                           flood_domain.get()->getUnknownFloodMode(0))
-                    {
-                      // For Future Use
-                      VLOGW << "UnknownFloodModeEnun=DROP will flood " << uri;
-                    }
-                }
-
-              vt_mc = mk_mcast_tunnel(runtime, key, bd_vnid.get(), bd_mcast.get());
-              l2_binding l2_vxbd(*vt_mc, bd);
-              OM::write(key, l2_vxbd);
-
-              std::shared_ptr<VOM::gbp_route_domain> grd =
-                mk_gbp_rd(runtime, key, rd, rd_vnid.get());
-
-              gbp_vxlan gvx_rd(rd_vnid.get(), *grd,
-                               runtime.uplink.local_address().to_v4());
-              OM::write(key, gvx_rd);
-
-              /*
-               * Add the base GBP-vxlan tunnels that will be used to derive
-               * the learned endpoints
-               */
-
-              /*
-               * construct a BD that uses the MAC spine proxy as the
-               * UU-fwd interface
-               */
-              gbp_bridge_domain gbd(bd, bvi, vt_mac, vt_mc);
-              OM::write(key, gbd);
-
-              /*
-               * base tunnel on which the TEPs derive and EPs are learnt
-               */
-              gbp_vxlan gvx_bd(bd_vnid.get(), gbd,
-                               runtime.uplink.local_address().to_v4());
-              OM::write(key, gvx_bd);
-
-              gepg = std::make_shared<gbp_endpoint_group>(fwd.vnid, fwd.sclass, *grd, gbd);
+                rd_vnid =
+                    runtime.policy_manager().getRDVnidForExternalInterface(uri);
+                bd_vnid =
+                    runtime.policy_manager().getBDVnidForExternalInterface(uri);
+                bd_mcast = runtime.policy_manager()
+                               .getBDMulticastIPForExternalInterface(uri);
             }
             else
             {
-              VLOGE << "no RD/BD vnid or sclass " << uri;
+                rd_vnid = runtime.policy_manager().getRDVnidForGroup(uri);
+                bd_vnid = runtime.policy_manager().getBDVnidForGroup(uri);
+                bd_mcast =
+                    runtime.policy_manager().getBDMulticastIPForGroup(uri);
+            }
+
+            if (bd_vnid && rd_vnid && bd_mcast)
+            {
+                std::shared_ptr<vxlan_tunnel> vt_mc, vt_mac;
+                gbp_bridge_domain::flags_t gbd_flags =
+                    gbp_bridge_domain::flags_t::NONE;
+
+                boost::optional<std::shared_ptr<modelgbp::gbp::FloodDomain>>
+                    flood_domain = runtime.policy_manager().getFDForGroup(uri);
+
+                if (flood_domain)
+                {
+                    if (flood_domain.get()->isUnknownFloodModeSet())
+                    {
+                        if (modelgbp::gbp::UnknownFloodModeEnumT::
+                                CONST_HWPROXY ==
+                            flood_domain.get()->getUnknownFloodMode(
+                                /* flood */ 1))
+                        {
+                            vt_mac = spine_proxy->mk_mac(key, bd_vnid.get());
+                        }
+                        else if (modelgbp::gbp::UnknownFloodModeEnumT::
+                                     CONST_DROP ==
+                                 flood_domain.get()->getUnknownFloodMode(
+                                     /* flood */ 1))
+                        {
+                            gbd_flags |=
+                                gbp_bridge_domain::flags_t::UU_FWD_DROP;
+                        }
+                    }
+                    if (flood_domain.get()->isBcastFloodModeSet())
+                    {
+                        if (modelgbp::gbp::BcastFloodModeEnumT::CONST_DROP ==
+                            flood_domain.get()->getBcastFloodMode(
+                                /* normal */ 0))
+                        {
+                            gbd_flags |= gbp_bridge_domain::flags_t::MCAST_DROP;
+                        }
+                    }
+                    if (flood_domain.get()->isEpLearnModeSet())
+                    {
+                        if (modelgbp::gbp::EpLearningModeEnumT::
+                                CONST_DISABLED ==
+                            flood_domain.get()->getEpLearnMode(/* enabled */ 1))
+                        {
+                            gbd_flags |=
+                                gbp_bridge_domain::flags_t::DO_NOT_LEARN;
+                        }
+                    }
+                    if (flood_domain.get()->isArpModeSet())
+                    {
+                        if (modelgbp::gbp::AddressResModeEnumT::CONST_UNICAST ==
+                            flood_domain.get()->getArpMode(/* flood */ 1))
+                        {
+                            gbd_flags |= gbp_bridge_domain::flags_t::UCAST_ARP;
+                            if (!vt_mac)
+                                vt_mac =
+                                    spine_proxy->mk_mac(key, bd_vnid.get());
+                        }
+                    }
+                }
+
+                vt_mc = mk_mcast_tunnel(
+                    runtime, key, bd_vnid.get(), bd_mcast.get());
+                l2_binding l2_vxbd(*vt_mc, bd);
+                OM::write(key, l2_vxbd);
+
+                std::shared_ptr<VOM::gbp_route_domain> grd =
+                    mk_gbp_rd(runtime, key, rd, rd_vnid.get());
+
+                gbp_vxlan gvx_rd(rd_vnid.get(),
+                                 *grd,
+                                 runtime.uplink.local_address().to_v4());
+                OM::write(key, gvx_rd);
+
+                /*
+                 * Add the base GBP-vxlan tunnels that will be used to derive
+                 * the learned endpoints
+                 */
+
+                /*
+                 * construct a BD that uses the MAC spine proxy as the
+                 * UU-fwd interface
+                 */
+                gbp_bridge_domain gbd(bd, bvi, vt_mac, vt_mc, gbd_flags);
+                OM::write(key, gbd);
+
+                /*
+                 * base tunnel on which the TEPs derive and EPs are learnt
+                 */
+                gbp_vxlan gvx_bd(
+                    bd_vnid.get(), gbd, runtime.uplink.local_address().to_v4());
+                OM::write(key, gvx_bd);
+
+                gepg = std::make_shared<gbp_endpoint_group>(
+                    fwd.vnid, fwd.sclass, *grd, gbd);
+            }
+            else
+            {
+                VLOGE << "no RD/BD vnid or sclass " << uri;
             }
         }
         else
@@ -418,7 +464,7 @@ EndPointGroupManager::mk_group(Runtime &runtime,
             l2_binding l2_upl(*encap_link, bd);
             if (interface::type_t::VXLAN != encap_link->type())
             {
-              l2_upl.set(l2_vtr::option_t::POP_1, fwd.vnid);
+                l2_upl.set(l2_vtr::option_t::POP_1, fwd.vnid);
             }
             OM::write(key, l2_upl);
 
@@ -439,8 +485,8 @@ EndPointGroupManager::mk_group(Runtime &runtime,
     }
     catch (EndPointGroupManager::NoFowardInfoException &nofwd)
     {
-        VLOGD << "NOT Updating endpoint-group: "
-              << nofwd.reason << " : " << uri;
+        VLOGD << "NOT Updating endpoint-group: " << nofwd.reason << " : "
+              << uri;
     }
 
     return gepg;
@@ -527,10 +573,11 @@ EndPointGroupManager::handle_update(const opflex::modb::URI &epgURI)
             route::prefix_t pfx(sn->getAddress().get(),
                                 sn->getPrefixLen().get());
 
-            gbp_subnet gs(*rd, pfx.low(),
-                          (gepg->get_route_domain()->get_ip4_uu_fwd() ?
-                           gbp_subnet::type_t::TRANSPORT :
-                           gbp_subnet::type_t::STITCHED_INTERNAL));
+            gbp_subnet gs(*rd,
+                          pfx.low(),
+                          (gepg->get_route_domain()->get_ip4_uu_fwd()
+                               ? gbp_subnet::type_t::TRANSPORT
+                               : gbp_subnet::type_t::STITCHED_INTERNAL));
             OM::write(epg_uuid, gs);
         }
     }

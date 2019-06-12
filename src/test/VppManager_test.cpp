@@ -400,7 +400,8 @@ class VppManagerFixture : public ModbFixture
             ->setTargetL3ExternalDomain(ext_dom->getURI());
 
         /* static_route1 = ext_node0->addGbpStaticRoute("static_route1"); */
-        /* static_route1->addGbpStaticRouteToVrfRSrc()->setTargetRoutingDomain( */
+        /* static_route1->addGbpStaticRouteToVrfRSrc()->setTargetRoutingDomain(
+         */
         /*     ext_rd0->getURI()); */
         /* static_route1->setAddress("101.101.0.0"); */
         /* static_route1->setPrefixLen(16); */
@@ -1167,8 +1168,8 @@ BOOST_FIXTURE_TEST_CASE(trans_endpoint_group_add_del,
     vxlan_tunnel *vt_mac =
         new vxlan_tunnel(host, spine_mac, 0xAA, vxlan_tunnel::mode_t::GBP_L2);
     WAIT_FOR_MATCH(*vt_mac);
-    vxlan_tunnel *vt_mc =
-        new vxlan_tunnel(host, bd_mc, 0xAA, v_sub, vxlan_tunnel::mode_t::GBP_L2);
+    vxlan_tunnel *vt_mc = new vxlan_tunnel(
+        host, bd_mc, 0xAA, v_sub, vxlan_tunnel::mode_t::GBP_L2);
     WAIT_FOR_MATCH(*vt_mc);
     vxlan_tunnel *vt_v4 =
         new vxlan_tunnel(host, spine_v4, 0xBB, vxlan_tunnel::mode_t::GBP_L2);
@@ -1272,11 +1273,11 @@ BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
         new gbp_bridge_domain(v_bd, v_bvi, {}, vt_bd_mcast);
     WAIT_FOR_MATCH(*v_gbd);
 
-    vxlan_tunnel *vt_v4 = new vxlan_tunnel(host, spine_v4, 0x010203,
-                                           vxlan_tunnel::mode_t::GBP_L2);
+    vxlan_tunnel *vt_v4 = new vxlan_tunnel(
+        host, spine_v4, 0x010203, vxlan_tunnel::mode_t::GBP_L2);
     WAIT_FOR_MATCH(*vt_v4);
-    vxlan_tunnel *vt_v6 = new vxlan_tunnel(host, spine_v6, 0x010203,
-                                           vxlan_tunnel::mode_t::GBP_L2);
+    vxlan_tunnel *vt_v6 = new vxlan_tunnel(
+        host, spine_v6, 0x010203, vxlan_tunnel::mode_t::GBP_L2);
     WAIT_FOR_MATCH(*vt_v6);
 
     gbp_route_domain *v_grd = new gbp_route_domain(v_rd, *vt_v4, *vt_v6);
@@ -1348,7 +1349,8 @@ BOOST_FIXTURE_TEST_CASE(ext_itf, VppTransportManagerFixture)
 /*     route_domain v_rd(100); */
 /*     WAIT_FOR_MATCH(v_rd); */
 
-/*     route::prefix_t pfx(boost::asio::ip::address::from_string("101.101.0.0"), */
+/*     route::prefix_t pfx(boost::asio::ip::address::from_string("101.101.0.0"),
+ */
 /*                         16); */
 
 /*     boost::asio::ip::address nh1, nh2, nh3; */

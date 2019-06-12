@@ -22,7 +22,8 @@ namespace VPP
 {
 const interface::type_t &getIntfTypeFromName(const std::string &name);
 
-boost::optional<mac_address_t> mac_from_modb(boost::optional<const opflex::modb::MAC&>);
+boost::optional<mac_address_t>
+mac_from_modb(boost::optional<const opflex::modb::MAC &>);
 };
 
 /*

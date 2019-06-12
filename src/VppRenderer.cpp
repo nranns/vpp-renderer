@@ -135,10 +135,10 @@ VppRenderer::setProperties(const boost::property_tree::ptree &properties)
     {
         uplinkIface = vlan.get().get<std::string>(UPLINK_IFACE, "");
         uplinkVlan = vlan.get().get<uint16_t>(UPLINK_VLAN, 0);
-        vppManager->uplink().set(uplinkIface, uplinkVlan,
+        vppManager->uplink().set(uplinkIface,
+                                 uplinkVlan,
                                  vlan.get().get<std::string>(ENCAP_IFACE, ""));
         auto slaves = vlan.get().get_child_optional(UPLINK_SLAVES);
-
 
         if (slaves)
         {
@@ -191,9 +191,10 @@ VppRenderer::setProperties(const boost::property_tree::ptree &properties)
     {
         uplinkIface = ivxlan.get().get<std::string>(UPLINK_IFACE, "");
         uplinkVlan = ivxlan.get().get<uint16_t>(UPLINK_VLAN, 0);
-        vppManager->uplink().set(uplinkIface,
-                                 uplinkVlan,
-                                 ivxlan.get().get<std::string>(ENCAP_IFACE, ""));
+        vppManager->uplink().set(
+            uplinkIface,
+            uplinkVlan,
+            ivxlan.get().get<std::string>(ENCAP_IFACE, ""));
         auto slaves = ivxlan.get().get_child_optional(UPLINK_SLAVES);
 
         if (slaves)
@@ -239,9 +240,9 @@ VppRenderer::setProperties(const boost::property_tree::ptree &properties)
                 std::string wname = west.get().get<std::string>(WIFACE, "");
                 uint16_t wvlan = west.get().get<uint16_t>(WVLAN, 0);
                 std::string wip = west.get().get<std::string>(WIP, "0.0.0.0");
-                LOG(opflexagent::DEBUG)
-                    << "east:[" << ename << " , " << evlan << " , " << eip
-                    << " , " << etag_rewrite << "]";
+                LOG(opflexagent::DEBUG) << "east:[" << ename << " , " << evlan
+                                        << " , " << eip << " , " << etag_rewrite
+                                        << "]";
                 LOG(opflexagent::DEBUG) << "west:[" << wname << " , " << wvlan
                                         << " , " << wip << "]";
                 if (!ename.empty() && !wname.empty())
@@ -275,8 +276,8 @@ VppRenderer::start()
     started = true;
     vppManager->start();
     vppManager->registerModbListeners();
-    if ((encapType == encapTypeVxlan) ||
-        (encapType == encapTypeIvxlan)) {
+    if ((encapType == encapTypeVxlan) || (encapType == encapTypeIvxlan))
+    {
         tunnelEpManager.setUplinkIface(uplinkIface);
         tunnelEpManager.setUplinkVlan(uplinkVlan);
         tunnelEpManager.setParentRenderer(this);
@@ -292,26 +293,28 @@ VppRenderer::stop()
     if (!started) return;
     started = false;
     LOG(opflexagent::INFO) << "Stopping vpp renderer plugin";
-    if ((encapType == encapTypeVxlan) ||
-        (encapType == encapTypeIvxlan)) {
-            tunnelEpManager.stop();
-        }
+    if ((encapType == encapTypeVxlan) || (encapType == encapTypeIvxlan))
+    {
+        tunnelEpManager.stop();
+    }
     vppManager->stop();
 }
 
-std::string VppRenderer::getUplinkAddress()
+std::string
+VppRenderer::getUplinkAddress()
 {
-    const boost::asio::ip::address addr =
-        vppManager->uplink().local_address();
+    const boost::asio::ip::address addr = vppManager->uplink().local_address();
     boost::system::error_code ec;
     string address = addr.to_string(ec);
-    if(ec) {
+    if (ec)
+    {
         LOG(opflexagent::ERROR) << "Failed to stringize uplink address" << ec;
     }
     return address;
 }
 
-std::string VppRenderer::getUplinkMac()
+std::string
+VppRenderer::getUplinkMac()
 {
     return vppManager->uplink().uplink_l2_address();
 }

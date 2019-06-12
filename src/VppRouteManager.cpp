@@ -11,9 +11,9 @@
 
 #include <modelgbp/gbp/L3ExternalDomain.hpp>
 #include <modelgbp/gbp/L3ExternalNetwork.hpp>
+#include <modelgbp/gbp/RemoteRoute.hpp>
 #include <modelgbp/gbp/RoutingDomain.hpp>
 #include <modelgbp/gbp/StaticRoute.hpp>
-#include <modelgbp/gbp/RemoteRoute.hpp>
 
 #include <opflexagent/RDConfig.h>
 
@@ -22,18 +22,18 @@
 #include <vom/gbp_endpoint.hpp>
 #include <vom/gbp_endpoint_group.hpp>
 #include <vom/gbp_recirc.hpp>
-#include <vom/gbp_subnet.hpp>
 #include <vom/gbp_route_domain.hpp>
+#include <vom/gbp_subnet.hpp>
 #include <vom/interface.hpp>
 #include <vom/l2_binding.hpp>
 #include <vom/l3_binding.hpp>
 #include <vom/nat_binding.hpp>
+#include <vom/neighbour.hpp>
 #include <vom/om.hpp>
 #include <vom/om.hpp>
 #include <vom/route.hpp>
 #include <vom/route_domain.hpp>
 #include <vom/sub_interface.hpp>
-#include <vom/neighbour.hpp>
 
 #include "VppEndPointGroupManager.hpp"
 #include "VppLog.hpp"
@@ -97,10 +97,11 @@ get_rd_subnets(opflexagent::Agent &agent, const opflex::modb::URI &uri)
 }
 
 void
-RouteManager::mk_ext_nets(Runtime &runtime,
-                          route_domain &rd,
-                          const opflex::modb::URI &uri,
-                          std::shared_ptr<modelgbp::gbp::L3ExternalDomain> ext_dom)
+RouteManager::mk_ext_nets(
+    Runtime &runtime,
+    route_domain &rd,
+    const opflex::modb::URI &uri,
+    std::shared_ptr<modelgbp::gbp::L3ExternalDomain> ext_dom)
 {
     const std::string &uuid = uri.toString();
 
@@ -135,8 +136,7 @@ RouteManager::mk_ext_nets(Runtime &runtime,
                   << std::to_string(snet->getPrefixLen(99))
                   << " sclass:" << sclass.get();
 
-            if (!snet->isAddressSet() || !snet->isPrefixLenSet())
-                    continue;
+            if (!snet->isAddressSet() || !snet->isPrefixLenSet()) continue;
 
             boost::asio::ip::address addr =
                 boost::asio::ip::address::from_string(snet->getAddress().get());
@@ -194,8 +194,8 @@ RouteManager::handle_domain_update(const opflex::modb::URI &uri)
     VOM::OM::write(rd_uuid, rd);
 
     std::shared_ptr<VOM::gbp_route_domain> v_grd =
-        EndPointGroupManager::mk_gbp_rd(m_runtime, rd_uuid, rd,
-                                        rd_inst.get()->getEncapId().get());
+        EndPointGroupManager::mk_gbp_rd(
+            m_runtime, rd_uuid, rd, rd_inst.get()->getEncapId().get());
 
     /*
      * For each internal Subnet
@@ -217,10 +217,11 @@ RouteManager::handle_domain_update(const opflex::modb::URI &uri)
          * add a route for the subnet in VPP's route-domain via
          * the EPG's uplink, DVR styleee
          */
-        gbp_subnet gs(*v_grd, {addr, sn.second},
-                      (m_runtime.is_transport_mode ?
-                       gbp_subnet::type_t::TRANSPORT :
-                       gbp_subnet::type_t::STITCHED_INTERNAL));
+        gbp_subnet gs(*v_grd,
+                      {addr, sn.second},
+                      (m_runtime.is_transport_mode
+                           ? gbp_subnet::type_t::TRANSPORT
+                           : gbp_subnet::type_t::STITCHED_INTERNAL));
         OM::write(rd_uuid, gs);
     }
 
@@ -243,8 +244,9 @@ RouteManager::handle_route_update(const opflex::modb::URI &uri)
 
     OM::mark_n_sweep ms(uuid);
 
-    boost::optional<std::shared_ptr<modelgbp::epdr::LocalRoute>> op_local_route =
-        modelgbp::epdr::LocalRoute::resolve(m_runtime.agent.getFramework(), uri);
+    boost::optional<std::shared_ptr<modelgbp::epdr::LocalRoute>>
+        op_local_route = modelgbp::epdr::LocalRoute::resolve(
+            m_runtime.agent.getFramework(), uri);
 
     if (!op_local_route)
     {
@@ -262,11 +264,17 @@ RouteManager::handle_route_update(const opflex::modb::URI &uri)
     bool are_nhs_remote;
     boost::optional<uint32_t> sclass;
 
-    m_runtime.agent.getPolicyManager().getRoute
-        (modelgbp::epdr::LocalRoute::CLASS_ID, uri,
-         m_runtime.uplink.local_address(),
-         rd, rd_inst, pfx_addr, pfx_len,
-         nh_list, are_nhs_remote, sclass);
+    m_runtime.agent.getPolicyManager().getRoute(
+        modelgbp::epdr::LocalRoute::CLASS_ID,
+        uri,
+        m_runtime.uplink.local_address(),
+        rd,
+        rd_inst,
+        pfx_addr,
+        pfx_len,
+        nh_list,
+        are_nhs_remote,
+        sclass);
 
     if (!rd || !rd_inst || !rd_inst->getEncapId())
     {
@@ -274,15 +282,15 @@ RouteManager::handle_route_update(const opflex::modb::URI &uri)
         return;
     }
 
-    uint32_t rd_id = m_runtime.id_gen.get(modelgbp::gbp::RoutingDomain::CLASS_ID,
-                                          rd->getURI());
- 
+    uint32_t rd_id = m_runtime.id_gen.get(
+        modelgbp::gbp::RoutingDomain::CLASS_ID, rd->getURI());
+
     VOM::route_domain v_rd(rd_id);
     VOM::OM::write(uuid, v_rd);
 
     std::shared_ptr<VOM::gbp_route_domain> v_grd =
-        EndPointGroupManager::mk_gbp_rd(m_runtime, uuid, v_rd,
-                                        rd_inst->getEncapId().get());
+        EndPointGroupManager::mk_gbp_rd(
+            m_runtime, uuid, v_rd, rd_inst->getEncapId().get());
 
     route::prefix_t pfx(pfx_addr, pfx_len);
     route::ip_route v_route(v_rd, pfx);
@@ -294,14 +302,15 @@ RouteManager::handle_route_update(const opflex::modb::URI &uri)
             /*
              * route via vxlan-gbp-tunnel
              */
-            vxlan_tunnel vt(m_runtime.uplink.local_address(), nh,
+            vxlan_tunnel vt(m_runtime.uplink.local_address(),
+                            nh,
                             rd_inst->getEncapId().get(),
                             v_rd,
                             vxlan_tunnel::mode_t::GBP_L3);
             OM::write(uuid, vt);
 
-            neighbour::flags_t f = (neighbour::flags_t::STATIC |
-                                    neighbour::flags_t::NO_FIB_ENTRY);
+            neighbour::flags_t f =
+                (neighbour::flags_t::STATIC | neighbour::flags_t::NO_FIB_ENTRY);
 
             neighbour nbr(vt, nh, GBP_ROUTED_DST_MAC, f);
             VOM::OM::write(uuid, nbr);
@@ -330,7 +339,6 @@ RouteManager::handle_route_update(const opflex::modb::URI &uri)
         VLOGW << "No slcass for: " << uri;
     }
 }
-
 
 }; // namepsace VPP
 

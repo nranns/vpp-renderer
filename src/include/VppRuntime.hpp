@@ -27,7 +27,8 @@ struct Runtime
     {
     }
 
-    opflexagent::PolicyManager &policy_manager()
+    opflexagent::PolicyManager &
+    policy_manager()
     {
         return agent.getPolicyManager();
     }

@@ -22,9 +22,9 @@
 #include <vom/gbp_contract.hpp>
 #include <vom/gbp_endpoint.hpp>
 #include <vom/gbp_endpoint_group.hpp>
+#include <vom/gbp_ext_itf.hpp>
 #include <vom/gbp_recirc.hpp>
 #include <vom/gbp_subnet.hpp>
-#include <vom/gbp_ext_itf.hpp>
 #include <vom/l2_binding.hpp>
 #include <vom/l3_binding.hpp>
 #include <vom/nat_binding.hpp>
@@ -331,7 +331,8 @@ EndPointManager::handle_update_i(const std::string &uuid, bool is_external)
     }
 
     std::shared_ptr<VOM::gbp_endpoint_group> gepg =
-      EndPointGroupManager::mk_group(m_runtime, uuid, epgURI.get(), is_external);
+        EndPointGroupManager::mk_group(
+            m_runtime, uuid, epgURI.get(), is_external);
 
     if (gepg)
     {
@@ -549,10 +550,12 @@ EndPointManager::handle_update_i(const std::string &uuid, bool is_external)
                 /*
                  * add a GDBP endpoint
                  */
-                gbp_endpoint gbpe(*itf, ipAddresses, vmac, *gepg,
-                                  (is_external ?
-                                   gbp_endpoint::flags_t::EXTERNAL :
-                                  gbp_endpoint::flags_t::NONE));
+                gbp_endpoint gbpe(*itf,
+                                  ipAddresses,
+                                  vmac,
+                                  *gepg,
+                                  (is_external ? gbp_endpoint::flags_t::EXTERNAL
+                                               : gbp_endpoint::flags_t::NONE));
                 OM::write(uuid, gbpe);
 
                 /*
@@ -702,11 +705,13 @@ EndPointManager::handle_update_i(const std::string &uuid, bool is_external)
         }
 
         /*
-         * If the EP is external then its EPG's BD interface is an external interface
+         * If the EP is external then its EPG's BD interface is an external
+         * interface
          */
         if (is_external)
         {
-            gbp_ext_itf gei(*bvi, *gepg->get_bridge_domain(), *gepg->get_route_domain());
+            gbp_ext_itf gei(
+                *bvi, *gepg->get_bridge_domain(), *gepg->get_route_domain());
             OM::write(uuid, gei);
         }
     }

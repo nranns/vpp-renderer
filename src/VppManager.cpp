@@ -19,12 +19,12 @@
 #include "VppContractManager.hpp"
 #include "VppEndPointGroupManager.hpp"
 #include "VppEndPointManager.hpp"
+#include "VppExtItfManager.hpp"
 #include "VppIdGen.hpp"
 #include "VppLog.hpp"
 #include "VppManager.hpp"
 #include "VppRouteManager.hpp"
 #include "VppSecurityGroupManager.hpp"
-#include "VppExtItfManager.hpp"
 
 #include <opflexagent/EndpointManager.h>
 
@@ -68,7 +68,8 @@ VppManager::start()
      * create the update delegators
      */
     m_runtime.is_transport_mode =
-        (opflex::ofcore::OFConstants::TRANSPORT_MODE == m_runtime.agent.getRendererForwardingMode());
+        (opflex::ofcore::OFConstants::TRANSPORT_MODE ==
+         m_runtime.agent.getRendererForwardingMode());
     m_epm = std::make_shared<EndPointManager>(m_runtime);
     m_epgm = std::make_shared<EndPointGroupManager>(m_runtime);
     m_sgm = std::make_shared<SecurityGroupManager>(m_runtime.agent);
@@ -326,8 +327,8 @@ VppManager::externalEndpointUpdated(const std::string &uuid)
 {
     if (stopping) return;
 
-    m_task_queue.dispatch(uuid,
-                          bind(&EndPointManager::handle_external_update, m_epm, uuid));
+    m_task_queue.dispatch(
+        uuid, bind(&EndPointManager::handle_external_update, m_epm, uuid));
 }
 
 void
@@ -335,8 +336,8 @@ VppManager::remoteEndpointUpdated(const std::string &uuid)
 {
     if (stopping) return;
 
-    m_task_queue.dispatch(uuid,
-                          bind(&EndPointManager::handle_remote_update, m_epm, uuid));
+    m_task_queue.dispatch(
+        uuid, bind(&EndPointManager::handle_remote_update, m_epm, uuid));
 }
 
 void
@@ -406,18 +407,16 @@ void
 VppManager::externalInterfaceUpdated(const opflex::modb::URI &uri)
 {
     if (stopping) return;
-    m_task_queue.dispatch(
-        uri.toString(),
-        bind(&ExtItfManager::handle_update, m_eim, uri));
+    m_task_queue.dispatch(uri.toString(),
+                          bind(&ExtItfManager::handle_update, m_eim, uri));
 }
 
 void
 VppManager::localRouteUpdated(const opflex::modb::URI &uri)
 {
     if (stopping) return;
-    m_task_queue.dispatch(
-        uri.toString(),
-        bind(&RouteManager::handle_route_update, m_rdm, uri));
+    m_task_queue.dispatch(uri.toString(),
+                          bind(&RouteManager::handle_route_update, m_rdm, uri));
 }
 
 void

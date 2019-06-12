@@ -131,9 +131,10 @@ CrossConnect::configure_xconnect()
         }
         VOM::l2_xconnect l2_xconn(*itf_ptr, *xitf_ptr);
         if ((type == VOM::interface::type_t::ETHERNET ||
-             type == VOM::interface::type_t::AFPACKET) && it.first.vlan &&
+             type == VOM::interface::type_t::AFPACKET) &&
+            it.first.vlan &&
             (it.first.tag_rewrite.find("pop") != std::string::npos))
-          l2_xconn.set(VOM::l2_vtr::option_t::POP_1, it.first.vlan);
+            l2_xconn.set(VOM::l2_vtr::option_t::POP_1, it.first.vlan);
         OM::write(XCONNECT_KEY, l2_xconn);
     }
 }

@@ -100,7 +100,7 @@ class VppManager : public opflexagent::EndpointListener,
     /* Interface: EndpointListener */
     virtual void endpointUpdated(const std::string &uuid);
     virtual void externalEndpointUpdated(const std::string &uuid);
-    virtual void remoteEndpointUpdated(const std::string& uuid);
+    virtual void remoteEndpointUpdated(const std::string &uuid);
     virtual void secGroupSetUpdated(const EndpointListener::uri_set_t &secGrps);
 
     /* Interface: ServiceListener */
@@ -115,8 +115,8 @@ class VppManager : public opflexagent::EndpointListener,
                                const opflex::modb::URI &domURI);
     virtual void contractUpdated(const opflex::modb::URI &contractURI);
     virtual void configUpdated(const opflex::modb::URI &configURI);
-    virtual void externalInterfaceUpdated(const opflex::modb::URI&);
-    virtual void localRouteUpdated(const opflex::modb::URI&);
+    virtual void externalInterfaceUpdated(const opflex::modb::URI &);
+    virtual void localRouteUpdated(const opflex::modb::URI &);
     virtual void secGroupUpdated(const opflex::modb::URI &);
 
     /* Interface: PortStatusListener */

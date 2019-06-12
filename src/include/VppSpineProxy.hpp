@@ -32,9 +32,12 @@ class SpineProxy
                const boost::asio::ip::address_v4 &remote_v6,
                const boost::asio::ip::address_v4 &remote_mac);
 
-    const std::shared_ptr<VOM::vxlan_tunnel> mk_v4(const std::string &key, uint32_t vnid);
-    const std::shared_ptr<VOM::vxlan_tunnel> mk_v6(const std::string &key, uint32_t vnid);
-    const std::shared_ptr<VOM::vxlan_tunnel> mk_mac(const std::string &key, uint32_t vnid);
+    const std::shared_ptr<VOM::vxlan_tunnel> mk_v4(const std::string &key,
+                                                   uint32_t vnid);
+    const std::shared_ptr<VOM::vxlan_tunnel> mk_v6(const std::string &key,
+                                                   uint32_t vnid);
+    const std::shared_ptr<VOM::vxlan_tunnel> mk_mac(const std::string &key,
+                                                    uint32_t vnid);
 
   private:
     const std::shared_ptr<VOM::vxlan_tunnel>

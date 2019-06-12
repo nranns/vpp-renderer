@@ -61,7 +61,9 @@ class VppRenderer : public opflexagent::Renderer
     /**
      * Is uplink address owned by renderer
      */
-    virtual bool isUplinkAddressImplemented() {
+    virtual bool
+    isUplinkAddressImplemented()
+    {
         return true;
     }
 
@@ -99,7 +101,13 @@ class VppRenderer : public opflexagent::Renderer
     std::string uplinkIface;
     uint16_t uplinkVlan;
 
-    enum EncapType { encapTypeNone, encapTypeVlan, encapTypeVxlan, encapTypeIvxlan };
+    enum EncapType
+    {
+        encapTypeNone,
+        encapTypeVlan,
+        encapTypeVxlan,
+        encapTypeIvxlan
+    };
     EncapType encapType;
 
     /**

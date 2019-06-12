@@ -98,7 +98,7 @@ class Uplink : public dhcp_client::event_listener
     void handle_dhcp_event(std::shared_ptr<dhcp_client::lease_t> lease);
 
     std::shared_ptr<SpineProxy> spine_proxy();
-    const std::string & system_name() const;
+    const std::string &system_name() const;
 
   private:
     void handle_dhcp_event_i(std::shared_ptr<dhcp_client::lease_t> lease);
