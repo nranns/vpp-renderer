@@ -300,17 +300,11 @@ VppRenderer::stop()
     vppManager->stop();
 }
 
-std::string
-VppRenderer::getUplinkAddress()
+boost::asio::ip::address VppRenderer::getUplinkAddress()
 {
-    const boost::asio::ip::address addr = vppManager->uplink().local_address();
-    boost::system::error_code ec;
-    string address = addr.to_string(ec);
-    if (ec)
-    {
-        LOG(opflexagent::ERROR) << "Failed to stringize uplink address" << ec;
-    }
-    return address;
+    const boost::asio::ip::address addr =
+        vppManager->uplink().local_address();
+    return addr;
 }
 
 std::string

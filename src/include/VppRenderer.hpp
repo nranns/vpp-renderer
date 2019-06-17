@@ -70,7 +70,7 @@ class VppRenderer : public opflexagent::Renderer
     /**
      * Get uplink address from renderer
      */
-    virtual std::string getUplinkAddress();
+    virtual boost::asio::ip::address getUplinkAddress();
 
     /**
      * Get uplink l2 address from renderer
